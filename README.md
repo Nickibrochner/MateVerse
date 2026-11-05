@@ -10,7 +10,6 @@ Stakken er den samme som i DND Vault: Vue 3 og Bun/Elysia med SQLite, og det hel
 | --- | --- | --- |
 | 📈 **Stockmate** | Porteføljer med depoter, kurser fra Yahoo Finance, realiseret og urealiseret gevinst i DKK | Flask-udgaven |
 | 💰 **Econmate** | Faste budgetter pr. måned og projekter med udlæg, udligning og forslag til overførsler | Tauri-udgaven |
-| 🐷 **Savemate** | Opsparingsmål med fremdrift, månedligt behov, faste indbetalinger, engangsbeløb og hævninger | Familia (Flask) |
 | 🌳 **Kinmate** | Slægtsforskning: stamtræ, anecirkel, kort, tidslinje, kilder, forskningslog, datakvalitet og GEDCOM | Tauri-udgaven |
 | 📋 **KanMate** | Kanban med projekter, deadlines, prioritet, underopgaver, arkiv og papirkurv | Tauri-udgaven |
 
@@ -31,12 +30,6 @@ Stakken er den samme som i DND Vault: Vue 3 og Bun/Elysia med SQLite, og det hel
 - **Budgetter:** faste udgifter med frekvens (månedlig, kvartalsvis, årlig …) omregnet til pr. måned. Fordeling pr. kategori og pr. person.
 - **Projekter:** udlæg, budget, saldo pr. deltager, forslag til overførsler og registrerede udligninger.
 - Deltagerne er hubbens brugere. "Fælles" udgifter deles ligeligt. Søgning, filtre, sortering og CSV-eksport.
-
-### Savemate (`/savemate`)
-
-- Mål med ikon, ejer (bruger eller fælles), målbeløb og dato.
-- Månedligt behov pr. mål og samlet. Status (på sporet/bagud) ud fra de seneste tre måneders opsparing.
-- Generelle engangsbeløb uden mål trækkes fra det samlede behov.
 
 ### Kinmate (`/kinmate`)
 
@@ -67,7 +60,7 @@ Databasen er en SQLite-fil i `data/mateverse.sqlite`, og Kinmates billeder ligge
 
 - **Kinmate:** lav en backup i den gamle Tauri-app (Indstillinger → Backup) og gendan filen under Kinmate → Indstillinger. Billeder skal tilføjes igen.
 - **Stockmate:** se nedenfor.
-- **Econmate, Savemate og KanMate:** importscripts kommer, når data fra de gamle apps er klar.
+- **Econmate og KanMate:** importscripts kommer, når data fra de gamle apps er klar.
 
 ### Import fra den gamle Flask-udgave af Stockmate
 
@@ -101,7 +94,6 @@ backend/
   src/mates/<mate>/routes.ts    Hver mates endpoints under /<mate>
   src/mates/stockmate/          portfolio.ts (regnemotor), market.ts (Yahoo Finance)
   src/mates/econmate/calc.ts    Månedlige beløb, saldi og forslag til overførsler
-  src/mates/savemate/calc.ts    Månedligt behov og status
   src/mates/kinmate/            relations.ts (typer, modparter, forslag), gedcom.ts, prompt.ts
   src/mates/**/*.test.ts        Tests (bun test)
   scripts/import-flask.ts       Import fra den gamle Stockmate (Flask)
@@ -125,7 +117,7 @@ frontend/src/
 
 - **Frontend:** `src/mates.ts` er registret. En mate har id, navn, ikon, accentfarve og status. Ruterne sætter `meta.mate`, og App.vue bruger den til topbaren og accentfarven (`--accent` i `tailwind.config.js`).
 - **Backend:** hver mate er et Elysia-plugin med eget præfiks (`/stockmate`). Det monteres i `src/index.ts`.
-- **Database:** én fælles fil. Tabellen `user` er fælles, og hver mates tabeller har præfiks (`stockmate_…`, `econmate_…`, `savemate_…`, `kinmate_…`, `kanmate_…`).
+- **Database:** én fælles fil. Tabellen `user` er fælles, og hver mates tabeller har præfiks (`stockmate_…`, `econmate_…`, `kinmate_…`, `kanmate_…`).
 - **Fælles komponenter:** `Modal`, `ConfirmButton` (to klik for at slette), `MemberPicker` (vælg hubbrugere) og `BarList` (simple søjlediagrammer) bruges på tværs af mates.
 
 **Sådan tilføjes en ny mate**, fx Foodmate:
@@ -162,7 +154,7 @@ Hver ændring kontrolleres i en databasetransaktion. Gør ændringen et salg ugy
 | POST | `/stockmate/transactions` | Opret transaktion |
 | GET/PUT/DELETE | `/stockmate/transactions/:id` | Hent, ret eller slet transaktion |
 
-De øvrige mates følger samme mønster under `/econmate`, `/savemate`, `/kinmate` og `/kanmate`. Se den enkelte mates `routes.ts`.
+De øvrige mates følger samme mønster under `/econmate`, `/kinmate` og `/kanmate`. Se den enkelte mates `routes.ts`.
 
 ## Udvikling
 
