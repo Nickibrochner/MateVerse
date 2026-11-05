@@ -22,7 +22,7 @@
       <div class="my-1 border-t border-stone-100" />
       <component
         :is="m.href ? 'a' : m.status === 'ready' ? 'router-link' : 'div'"
-        v-for="m in MATES"
+        v-for="m in orderedMates"
         :key="m.id"
         :href="m.href"
         :target="m.href ? '_blank' : undefined"
@@ -36,13 +36,18 @@
         <span class="font-semibold">{{ m.name }}</span>
         <span v-if="m.status !== 'ready'" class="ml-auto text-[11px] text-stone-400">Kommer</span>
       </component>
+      <div class="my-1 border-t border-stone-100" />
+      <router-link to="/indstillinger" class="menu-item" @click="open = false">
+        <span class="text-lg">⚙️</span>
+        <span class="font-semibold">Indstillinger</span>
+      </router-link>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { MATES } from '../mates'
+import { orderedMates } from '../lib/mateOrder'
 
 const DOTS = [5, 12, 19].flatMap(x => [5, 12, 19].map(y => [x, y]))
 const open = ref(false)
