@@ -13,6 +13,7 @@ Stakken er den samme som i DND Vault: Vue 3 og Bun/Elysia med SQLite, og det hel
 | 🐷 **Savemate** | Opsparingsmål med fremdrift, månedligt behov, faste indbetalinger, engangsbeløb og hævninger | Familia (Flask) |
 | 🌳 **Kinmate** | Slægtsforskning: stamtræ, anecirkel, kort, tidslinje, kilder, forskningslog, datakvalitet og GEDCOM | Tauri-udgaven |
 | 📋 **KanMate** | Kanban med projekter, deadlines, prioritet, underopgaver, arkiv og papirkurv | Tauri-udgaven |
+| 🥏 **DiskMate** | Disc golf: UDisc-import, statistik pr. bane, layout og fysisk hul, spillere, badges, grupperunder og diskkartotek | Tauri-udgaven |
 
 ### Hubben (`/`)
 
@@ -45,6 +46,14 @@ Stakken er den samme som i DND Vault: Vue 3 og Bun/Elysia med SQLite, og det hel
 - Kilder, forskningslog, datakvalitetstjek, fletning af persondubletter, AI-prompt og arkiv-opslag.
 - GEDCOM-import/-eksport og backup i samme JSON-format som Tauri-udgaven.
 
+### DiskMate (`/diskmate`)
+
+- Import af UDisc-scorecards (CSV), statistik pr. bane, layout og hul og udvikling over tid.
+- Fysiske huller, så samme kurv kan sammenlignes på tværs af layouts. Layout-administration med par, rækkefølge og kobling.
+- Spillerside med badges, personlig rekord, hoved-til-hoved, rundedetaljer (rettelse af scores, vind/vejr, diske i runden) og JSON-eksport til en LLM.
+- Grupperunder med placering og et diskkartotek med flight-tal, billeder og filtre.
+- Siderne er overtaget næsten uændret fra Tauri-udgaven. Backenden har de samme kommandoer, kaldt som `POST /diskmate/rpc/<kommando>`, og stilarket `diskmate.css` er afgrænset til DiskMate.
+
 ### KanMate (`/kanmate`)
 
 - Projekter med farver og fremdrift. Board med træk-og-slip og pile, filtrering på person.
@@ -61,13 +70,13 @@ docker compose up --build
 - Hub og frontend: <http://localhost:5173>
 - Backend (API): <http://localhost:3000>
 
-Databasen er en SQLite-fil i `data/mateverse.sqlite`, og Kinmates billeder ligger i `data/kinmate-billeder/`. Mappen er mountet ind i backend-containeren, så data overlever genstarter, og den committes ikke.
+Databasen er en SQLite-fil i `data/mateverse.sqlite`, og billeder fra Kinmate og DiskMate ligger i `data/kinmate-billeder/` og `data/diskmate-billeder/`. Mappen er mountet ind i backend-containeren, så data overlever genstarter, og den committes ikke.
 
 ### Overførsel af data
 
 - **Kinmate:** lav en backup i den gamle Tauri-app (Indstillinger → Backup) og gendan filen under Kinmate → Indstillinger. Billeder skal tilføjes igen.
 - **Stockmate:** se nedenfor.
-- **Econmate, Savemate og KanMate:** importscripts kommer, når data fra de gamle apps er klar.
+- **Econmate, Savemate, KanMate og DiskMate:** importscripts kommer, når data fra de gamle apps er klar.
 
 ### Import fra den gamle Flask-udgave af Stockmate
 
@@ -88,6 +97,7 @@ Brugere matches på navn. Scriptet kan køres flere gange, fordi transaktioner d
 | Database | SQLite via `bun:sqlite` |
 | Markedsdata | Yahoo Finance (kurser, valutakurser og tickersøgning) |
 | Kort | Leaflet med OpenStreetMap, geokodning via Nominatim (Kinmate) |
+| Grafer | Chart.js (DiskMate) |
 
 ## Projektstruktur
 
@@ -125,7 +135,7 @@ frontend/src/
 
 - **Frontend:** `src/mates.ts` er registret. En mate har id, navn, ikon, accentfarve og status. Ruterne sætter `meta.mate`, og App.vue bruger den til topbaren og accentfarven (`--accent` i `tailwind.config.js`).
 - **Backend:** hver mate er et Elysia-plugin med eget præfiks (`/stockmate`). Det monteres i `src/index.ts`.
-- **Database:** én fælles fil. Tabellen `user` er fælles, og hver mates tabeller har præfiks (`stockmate_…`, `econmate_…`, `savemate_…`, `kinmate_…`, `kanmate_…`).
+- **Database:** én fælles fil. Tabellen `user` er fælles, og hver mates tabeller har præfiks (`stockmate_…`, `econmate_…`, `savemate_…`, `kinmate_…`, `kanmate_…`, `diskmate_…`).
 - **Fælles komponenter:** `Modal`, `ConfirmButton` (to klik for at slette), `MemberPicker` (vælg hubbrugere) og `BarList` (simple søjlediagrammer) bruges på tværs af mates.
 
 **Sådan tilføjes en ny mate**, fx Foodmate:
@@ -162,7 +172,7 @@ Hver ændring kontrolleres i en databasetransaktion. Gør ændringen et salg ugy
 | POST | `/stockmate/transactions` | Opret transaktion |
 | GET/PUT/DELETE | `/stockmate/transactions/:id` | Hent, ret eller slet transaktion |
 
-De øvrige mates følger samme mønster under `/econmate`, `/savemate`, `/kinmate` og `/kanmate`. Se den enkelte mates `routes.ts`.
+De øvrige mates følger samme mønster under `/econmate`, `/savemate`, `/kinmate` og `/kanmate`. DiskMate bruger `POST /diskmate/rpc/<kommando>` (liste: `GET /diskmate/commands`). Se den enkelte mates `routes.ts`.
 
 ## Udvikling
 
@@ -181,3 +191,4 @@ De øvrige mates følger samme mønster under `/econmate`, `/savemate`, `/kinmat
 - Kinmate: billeder følger ikke med en backup fra Tauri-udgaven, fordi de lå som filer på den gamle maskine.
 - Kinmate-kortet og geokodningen kræver adgang til OpenStreetMap og Nominatim.
 - KanMates synkronisering til PostgreSQL på Hetzner er ikke med. Hubbens egen backend erstatter den.
+- DiskMates automatiske import fra Google Drive er ikke med endnu. CSV-filer importeres under Indstillinger → Importér.

@@ -5,6 +5,7 @@ import { econmateRoutes } from '../mates/econmate/routes'
 import { kanmateRoutes } from '../mates/kanmate/routes'
 import { savemateRoutes } from '../mates/savemate/routes'
 import { kinmateRoutes } from '../mates/kinmate/routes'
+import { diskmateRoutes } from '../mates/diskmate/routes'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -22,6 +23,7 @@ const router = createRouter({
     ...kanmateRoutes,
     ...savemateRoutes,
     ...kinmateRoutes,
+    ...diskmateRoutes,
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })

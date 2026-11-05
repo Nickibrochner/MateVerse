@@ -209,6 +209,87 @@ const MIGRATIONS: string[] = [
      lng REAL,
      kilde TEXT
    );`,
+
+  // 7: DiskMate – disc golf. Samme skema som Tauri-udgaven (UDisc-import, fysiske huller på tværs af
+  // layouts, runder, diske og diske pr. runde), med præfiks. Spillere er navne fra UDisc, ikke hubbrugere.
+  `CREATE TABLE IF NOT EXISTS diskmate_courses (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL UNIQUE
+   );
+   CREATE TABLE IF NOT EXISTS diskmate_layouts (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     course_id INTEGER NOT NULL REFERENCES diskmate_courses(id) ON DELETE CASCADE,
+     name TEXT NOT NULL,
+     hole_count INTEGER NOT NULL DEFAULT 0,
+     UNIQUE(course_id, name)
+   );
+   CREATE TABLE IF NOT EXISTS diskmate_course_holes (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     course_id INTEGER NOT NULL REFERENCES diskmate_courses(id) ON DELETE CASCADE,
+     label TEXT NOT NULL
+   );
+   CREATE TABLE IF NOT EXISTS diskmate_holes (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     layout_id INTEGER NOT NULL REFERENCES diskmate_layouts(id) ON DELETE CASCADE,
+     hole_number INTEGER NOT NULL,
+     par INTEGER NOT NULL,
+     course_hole_id INTEGER REFERENCES diskmate_course_holes(id) ON DELETE SET NULL,
+     UNIQUE(layout_id, hole_number)
+   );
+   CREATE TABLE IF NOT EXISTS diskmate_rounds (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     layout_id INTEGER NOT NULL REFERENCES diskmate_layouts(id) ON DELETE CASCADE,
+     player_name TEXT NOT NULL,
+     date TEXT NOT NULL,
+     total_score INTEGER NOT NULL,
+     total_par INTEGER NOT NULL,
+     to_par INTEGER NOT NULL,
+     rating INTEGER,
+     wind TEXT,
+     weather TEXT,
+     UNIQUE(layout_id, player_name, date)
+   );
+   CREATE TABLE IF NOT EXISTS diskmate_round_scores (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     round_id INTEGER NOT NULL REFERENCES diskmate_rounds(id) ON DELETE CASCADE,
+     hole_number INTEGER NOT NULL,
+     strokes INTEGER NOT NULL,
+     par INTEGER NOT NULL,
+     to_par INTEGER NOT NULL,
+     UNIQUE(round_id, hole_number)
+   );
+   CREATE TABLE IF NOT EXISTS diskmate_discs (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL,
+     brand TEXT,
+     mold TEXT,
+     category TEXT NOT NULL DEFAULT 'Andet',
+     color TEXT,
+     in_bag INTEGER NOT NULL DEFAULT 1,
+     speed REAL, glide REAL, turn REAL, fade REAL,
+     weight_grams INTEGER,
+     plastic TEXT,
+     condition TEXT,
+     notes TEXT,
+     image_path TEXT,
+     holder TEXT,
+     lost INTEGER NOT NULL DEFAULT 0,
+     skill_levels TEXT,
+     best_wind TEXT,
+     best_weather TEXT,
+     stability TEXT,
+     acquired_date TEXT
+   );
+   CREATE TABLE IF NOT EXISTS diskmate_round_discs (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     round_id INTEGER NOT NULL REFERENCES diskmate_rounds(id) ON DELETE CASCADE,
+     disc_id INTEGER NOT NULL REFERENCES diskmate_discs(id) ON DELETE CASCADE,
+     UNIQUE(round_id, disc_id)
+   );
+   CREATE INDEX IF NOT EXISTS diskmate_idx_rounds_layout_player ON diskmate_rounds(layout_id, player_name);
+   CREATE INDEX IF NOT EXISTS diskmate_idx_round_scores_round ON diskmate_round_scores(round_id);
+   CREATE INDEX IF NOT EXISTS diskmate_idx_round_discs_round ON diskmate_round_discs(round_id);
+   CREATE INDEX IF NOT EXISTS diskmate_idx_holes_course_hole ON diskmate_holes(course_hole_id);`,
 ]
 
 export function migrate(database: Database = db) {

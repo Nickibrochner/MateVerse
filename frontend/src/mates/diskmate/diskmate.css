@@ -1,0 +1,269 @@
+/*
+ * DiskMates sider er overtaget fra Tauri-udgaven og bruger dens Fluent-klasser.
+ * Stilarket er afgrænset til .diskmate, og variablerne peger på hubbens farver.
+ */
+.diskmate {
+  --accent: rgb(var(--accent-rgb));
+  --accent-light: rgb(var(--accent-rgb) / 0.85);
+  --accent-dark: rgb(var(--accent-rgb));
+  --accent-subtle: rgb(var(--accent-rgb) / 0.1);
+  --bg-base: #f5f5f4;
+  --bg-layer: #ffffff;
+  --bg-layer-alt: #fafaf9;
+  --bg-nav: #f5f5f4;
+  --bg-card: #ffffff;
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-tertiary: #a8a29e;
+  --text-on-accent: #ffffff;
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+  --success: #047857;
+  --success-bg: #ecfdf5;
+  --danger: #b91c1c;
+  --danger-bg: #fef2f2;
+  --warning: #b45309;
+  --warning-bg: #fffbeb;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 2px 8px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 10px 25px rgb(0 0 0 / 0.12);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.diskmate input:not([type=checkbox]):not([type=radio]):not([type=range]),
+.diskmate select,
+.diskmate textarea {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 7px 10px;
+  background: var(--bg-layer);
+  color: var(--text-primary);
+}
+.diskmate h1, .diskmate h2, .diskmate h3 { letter-spacing: normal; }
+.diskmate .hint { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5; }
+.diskmate code { background: var(--bg-layer-alt); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-size: 12px; }
+.diskmate .success-msg { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--success-bg); color: var(--success); font-size: 13px; }
+
+.diskmate .page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+/* ── Kort ── */
+.diskmate .card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.diskmate .card-body { padding: 20px; }
+/* ── Summary grid ── */
+.diskmate .summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.diskmate .summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--shadow-sm);
+}
+.diskmate .summary-card.gain { background: var(--success-bg); border-color: var(--success); }
+.diskmate .summary-card.loss { background: var(--danger-bg);  border-color: var(--danger);  }
+.diskmate .summary-label { font-size: 12px; color: var(--text-secondary); }
+.diskmate .summary-value { font-size: 22px; font-weight: 600; color: var(--text-primary); }
+.diskmate .summary-card.gain .summary-value { color: var(--success); }
+.diskmate .summary-card.loss .summary-value { color: var(--danger);  }
+/* ── Valutabar ── */
+.diskmate .rates-bar {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  background: var(--bg-layer-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.diskmate .rates-updated { margin-left: auto; color: var(--text-tertiary); }
+/* ── Tabel ── */
+.diskmate .fluent-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
+}
+.diskmate .fluent-table thead th {
+  background: var(--bg-layer-alt);
+  color: var(--text-secondary);
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border);
+}
+.diskmate .fluent-table tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.diskmate .fluent-table tbody tr:last-child td { border-bottom: none; }
+.diskmate .fluent-table tbody tr:nth-child(even) td { background: var(--bg-layer-alt); }
+/* ── Knapper ── */
+.diskmate .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.diskmate .btn-accent {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-color: var(--accent-dark);
+}
+.diskmate .btn-accent:hover { background: var(--accent-light); }
+.diskmate .btn-accent:disabled { background: #A0A0A0; border-color: #909090; cursor: not-allowed; }
+.diskmate .btn-subtle {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.diskmate .btn-subtle:hover { background: rgba(0,0,0,0.05); }
+.diskmate .btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+  padding: 6px 10px;
+}
+.diskmate .btn-ghost:hover { background: rgba(0,0,0,0.06); color: var(--text-primary); }
+/* ── Formular ── */
+.diskmate .form-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 20px;
+  max-width: 520px;
+  box-shadow: var(--shadow-sm);
+}
+.diskmate .form-card h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+.diskmate .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.diskmate .form-group { margin-bottom: 12px; }
+.diskmate .form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.diskmate .form-group input, .diskmate .form-group select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  background: var(--bg-layer);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.diskmate .form-group input:focus, .diskmate .form-group select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+.diskmate .form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+/* ── Total preview ── */
+.diskmate .total-preview {
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--accent-dark);
+  margin-bottom: 12px;
+}
+/* ── Badges ── */
+.diskmate .badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+}
+.diskmate .badge-buy { background: var(--success-bg); color: var(--success); }
+.diskmate .badge-sell { background: var(--danger-bg);  color: var(--danger);  }
+/* ── Gevinst/tab farver ── */
+.diskmate .gain { color: var(--success); font-weight: 600; }
+.diskmate .loss { color: var(--danger);  font-weight: 600; }
+/* ── Fejlbesked ── */
+.diskmate .error-msg {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+/* ── Tom tilstand ── */
+.diskmate .empty-state {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+/* ── Sektionsoverskrift ── */
+.diskmate .section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 24px 0 12px;
+}
+.diskmate .section-title:first-of-type { margin-top: 0; }
+/* ── Page header ── */
+.diskmate .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}

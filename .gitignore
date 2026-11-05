@@ -11,3 +11,4 @@ data/*.sqlite-wal
 data/*.sqlite-shm
 data/*.db
 data/kinmate-billeder/
+data/diskmate-billeder/
