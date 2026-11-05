@@ -21,10 +21,13 @@
       </router-link>
       <div class="my-1 border-t border-stone-100" />
       <component
-        :is="m.status === 'ready' ? 'router-link' : 'div'"
+        :is="m.href ? 'a' : m.status === 'ready' ? 'router-link' : 'div'"
         v-for="m in MATES"
         :key="m.id"
-        :to="m.status === 'ready' ? `/${m.id}` : undefined"
+        :href="m.href"
+        :target="m.href ? '_blank' : undefined"
+        :rel="m.href ? 'noopener' : undefined"
+        :to="!m.href && m.status === 'ready' ? `/${m.id}` : undefined"
         class="menu-item"
         :class="m.status !== 'ready' && 'opacity-50 cursor-default'"
         @click="m.status === 'ready' && (open = false)"

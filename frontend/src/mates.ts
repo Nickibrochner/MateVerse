@@ -3,6 +3,9 @@
  * Ny mate: tilføj en indgang her, en mappe under src/mates/<id>/ med routes.ts,
  * og et Elysia-plugin under backend/src/mates/<id>/ med præfikset /<id>.
  */
+
+/** Domus er sit eget projekt (Python/FastAPI) med egen docker compose – ikke en mate-plugin i denne hub. */
+const DOMUS_URL = import.meta.env.VITE_DOMUS_URL ?? 'http://localhost:8080'
 export interface MateInfo {
   id: string
   name: string
@@ -13,6 +16,8 @@ export interface MateInfo {
   accentSoft: string
   /** 'ready' = findes i hubben; 'planned' = vises som kommende. */
   status: 'ready' | 'planned'
+  /** Sat for mates, der er egne apps uden for hubben – kortet linker eksternt i stedet for til en intern rute. */
+  href?: string
 }
 
 export const MATES: MateInfo[] = [
@@ -69,6 +74,16 @@ export const MATES: MateInfo[] = [
     accent: '29 78 216',
     accentSoft: '239 246 255',
     status: 'ready',
+  },
+  {
+    id: 'domus',
+    name: 'Domus',
+    icon: '🏠',
+    description: 'Hjemmets teknik: router og AiMesh, klienter, WiFi-kanaler, hændelser og gulvvarme (Roth Touchline).',
+    accent: '15 118 110',
+    accentSoft: '240 253 250',
+    status: 'ready',
+    href: DOMUS_URL,
   },
 ]
 
