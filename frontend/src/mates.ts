@@ -62,6 +62,15 @@ export const MATES: MateInfo[] = [
     status: 'ready',
   },
   {
+    id: 'diskmate',
+    name: 'DiskMate',
+    icon: '🥏',
+    description: 'Disc golf: UDisc-import, statistik pr. bane, layout og hul, spillere, badges, grupperunder og diskkartotek.',
+    accent: '79 70 229',
+    accentSoft: '238 242 255',
+    status: 'ready',
+  },
+  {
     id: 'kanmate',
     name: 'KanMate',
     icon: '📋',
