@@ -10,8 +10,11 @@
       <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <li v-for="m in MATES" :key="m.id">
           <component
-            :is="m.status === 'ready' ? 'router-link' : 'div'"
-            :to="m.status === 'ready' ? `/${m.id}` : undefined"
+            :is="m.href ? 'a' : m.status === 'ready' ? 'router-link' : 'div'"
+            :href="m.href"
+            :target="m.href ? '_blank' : undefined"
+            :rel="m.href ? 'noopener' : undefined"
+            :to="!m.href && m.status === 'ready' ? `/${m.id}` : undefined"
             class="panel h-full flex flex-col gap-3 transition-all"
             :class="m.status === 'ready' ? 'hover:-translate-y-0.5 hover:shadow-md group' : 'opacity-60'"
             :style="{ '--accent': m.accent, '--accent-soft': m.accentSoft }"
@@ -20,7 +23,7 @@
               <span class="grid place-items-center w-12 h-12 rounded-xl bg-accent-soft text-2xl">{{ m.icon }}</span>
               <div class="min-w-0">
                 <div class="font-display text-lg font-bold text-stone-900 group-hover:text-accent">{{ m.name }}</div>
-                <span v-if="m.status === 'ready'" class="tag bg-accent-soft text-accent">Klar</span>
+                <span v-if="m.status === 'ready'" class="tag bg-accent-soft text-accent">{{ m.href ? 'Åbner i nyt vindue' : 'Klar' }}</span>
                 <span v-else class="tag bg-stone-100 text-stone-500">Kommer snart</span>
               </div>
             </div>
