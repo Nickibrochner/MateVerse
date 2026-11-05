@@ -209,6 +209,11 @@ const MIGRATIONS: string[] = [
      lng REAL,
      kilde TEXT
    );`,
+
+  // 7: Savemate er fjernet igen (Econmates projekter dækker opsparing). Migration 5 rettes ikke,
+  // så tabellerne droppes her i stedet.
+  `DROP TABLE IF EXISTS savemate_contribution;
+   DROP TABLE IF EXISTS savemate_goal;`,
 ]
 
 export function migrate(database: Database = db) {
