@@ -6,7 +6,9 @@
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "test": "bun test",
-    "import-flask": "bun run scripts/import-flask.ts"
+    "import-flask": "bun run scripts/import-flask.ts",
+    "import-econmate": "bun run scripts/import-econmate.ts",
+    "import-kanmate": "bun run scripts/import-kanmate.ts"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.1.1",
