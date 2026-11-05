@@ -3,7 +3,6 @@ import Hub from '../views/Hub.vue'
 import { stockmateRoutes } from '../mates/stockmate/routes'
 import { econmateRoutes } from '../mates/econmate/routes'
 import { kanmateRoutes } from '../mates/kanmate/routes'
-import { savemateRoutes } from '../mates/savemate/routes'
 import { kinmateRoutes } from '../mates/kinmate/routes'
 import { diskmateRoutes } from '../mates/diskmate/routes'
 
@@ -21,7 +20,6 @@ const router = createRouter({
     ...stockmateRoutes,
     ...econmateRoutes,
     ...kanmateRoutes,
-    ...savemateRoutes,
     ...kinmateRoutes,
     ...diskmateRoutes,
     { path: '/:pathMatch(.*)*', redirect: '/' },

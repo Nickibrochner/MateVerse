@@ -290,6 +290,11 @@ const MIGRATIONS: string[] = [
    CREATE INDEX IF NOT EXISTS diskmate_idx_round_scores_round ON diskmate_round_scores(round_id);
    CREATE INDEX IF NOT EXISTS diskmate_idx_round_discs_round ON diskmate_round_discs(round_id);
    CREATE INDEX IF NOT EXISTS diskmate_idx_holes_course_hole ON diskmate_holes(course_hole_id);`,
+
+  // 8: Savemate er fjernet igen (Econmates projekter dækker opsparing). Migration 5 rettes ikke,
+  // så tabellerne droppes her i stedet.
+  `DROP TABLE IF EXISTS savemate_contribution;
+   DROP TABLE IF EXISTS savemate_goal;`,
 ]
 
 export function migrate(database: Database = db) {

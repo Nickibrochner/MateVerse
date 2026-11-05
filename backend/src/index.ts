@@ -4,7 +4,6 @@ import { db } from './db'
 import { stockmate } from './mates/stockmate/routes'
 import { econmate } from './mates/econmate/routes'
 import { kanmate } from './mates/kanmate/routes'
-import { savemate } from './mates/savemate/routes'
 import { kinmate } from './mates/kinmate/routes'
 import { diskmate } from './mates/diskmate/routes'
 
@@ -57,7 +56,6 @@ const app = new Elysia()
   .use(stockmate)
   .use(econmate)
   .use(kanmate)
-  .use(savemate)
   .use(kinmate)
   .use(diskmate)
   .listen(PORT)

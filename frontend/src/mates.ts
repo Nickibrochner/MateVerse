@@ -40,15 +40,6 @@ export const MATES: MateInfo[] = [
     status: 'ready',
   },
   {
-    id: 'savemate',
-    name: 'Savemate',
-    icon: '🐷',
-    description: 'Opsparingsmål med fremdrift, månedligt behov, faste indbetalinger, engangsbeløb og hævninger.',
-    accent: '190 24 93',
-    accentSoft: '253 242 248',
-    status: 'ready',
-  },
-  {
     id: 'foodmate',
     name: 'Foodmate',
     icon: '🍽️',
