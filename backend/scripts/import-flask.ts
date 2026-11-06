@@ -3,7 +3,7 @@
  *
  *   bun run import-flask ../instance/stockmate.db
  *
- * Brugere matches på brugernavn. Gamle transaktioner havde ingen gemt valutakurs,
+ * Brugere matches på navn. Gamle transaktioner havde ingen gemt valutakurs,
  * så dagens kurs bruges (samme adfærd som den gamle app). Scriptet kan køres flere gange –
  * transaktioner, der allerede er importeret, springes over.
  */
@@ -18,18 +18,18 @@ if (!path) {
 }
 
 const old = new Database(path, { readonly: true })
-const users = old.query('SELECT id, username FROM user').all() as { id: number; username: string }[]
+const users = old.query('SELECT id, name AS username FROM portfolio_user').all() as { id: string; username: string }[]
 const stocks = old.query('SELECT id, ticker, name, currency FROM stock').all() as
-  { id: number; ticker: string; name: string | null; currency: string | null }[]
-const txs = old.query('SELECT * FROM "transaction" ORDER BY transaction_date, id').all() as any[]
+  { id: string; ticker: string; name: string | null; currency: string | null }[]
+const txs = old.query('SELECT * FROM transaction_log ORDER BY transaction_date, id').all() as any[]
 
-const userMap = new Map<number, number>()
+const userMap = new Map<string, number>()
 for (const u of users) {
   db.query('INSERT OR IGNORE INTO user (username) VALUES (?)').run(u.username)
   userMap.set(u.id, (db.query('SELECT id FROM user WHERE username = ?').get(u.username) as { id: number }).id)
 }
 
-const stockMap = new Map<number, number>()
+const stockMap = new Map<string, number>()
 for (const s of stocks) {
   const ticker = s.ticker.toUpperCase()
   db.query('INSERT OR IGNORE INTO stockmate_stock (ticker, name, currency) VALUES (?, ?, ?)')
@@ -40,7 +40,7 @@ for (const s of stocks) {
 const fx = new Map<string, number>()
 for (const c of new Set(txs.map(t => (t.transaction_currency ?? 'DKK').toUpperCase()))) fx.set(c, await getFxRate(c))
 
-const note = (id: number) => `Importeret fra Flask (#${id})`
+const note = (id: string) => `Importeret fra Flask (#${id})`
 let imported = 0
 for (const t of txs) {
   if (db.query('SELECT 1 FROM stockmate_transaction WHERE note = ?').get(note(t.id))) continue
