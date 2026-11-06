@@ -1,23 +1,29 @@
 <template>
   <div class="max-w-7xl mx-auto px-4 py-8 space-y-6">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 class="text-3xl font-bold flex items-center gap-3">
-          <span v-if="project" class="w-4 h-4 rounded-full" :style="{ background: project.color }" />
-          {{ project ? project.name : 'Board' }}
-        </h1>
-        <p class="text-stone-500 mt-1">{{ project ? 'Projektets opgaver' : 'Alle aktive opgaver' }}</p>
+    <!-- Titel og faner holdes på samme bredde som de andre KanMate-sider (max-w-6xl) – ellers
+         knækker KanNav om et andet sted end på Projekter/Deadlines/Arkiv/Papirkurv, og fanerne
+         ser ud til at "hoppe" når man skifter mellem Board og de øvrige sider. Selve boardet
+         (kolonnerne nedenfor) beholder den bredere ramme. -->
+    <div class="max-w-6xl mx-auto w-full space-y-6">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-bold flex items-center gap-3">
+            <span v-if="project" class="w-4 h-4 rounded-full" :style="{ background: project.color }" />
+            {{ project ? project.name : 'Board' }}
+          </h1>
+          <p class="text-stone-500 mt-1">{{ project ? 'Projektets opgaver' : 'Alle aktive opgaver' }}</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <select v-model="assigneeFilter" class="field !w-auto !py-1.5 text-sm" aria-label="Filtrér på person">
+            <option value="all">Alle personer</option>
+            <option value="none">Ikke tildelt</option>
+            <option v-for="u in usersStore.users" :key="u.id" :value="String(u.id)">{{ u.username }}</option>
+          </select>
+          <button type="button" class="btn-primary" @click="openTask(null, 'todo')">+ Ny opgave</button>
+        </div>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <select v-model="assigneeFilter" class="field !w-auto !py-1.5 text-sm" aria-label="Filtrér på person">
-          <option value="all">Alle personer</option>
-          <option value="none">Ikke tildelt</option>
-          <option v-for="u in usersStore.users" :key="u.id" :value="String(u.id)">{{ u.username }}</option>
-        </select>
-        <button type="button" class="btn-primary" @click="openTask(null, 'todo')">+ Ny opgave</button>
-      </div>
+      <KanNav />
     </div>
-    <KanNav />
 
     <p v-if="error" class="panel text-loss">{{ error }}</p>
 

@@ -1,10 +1,14 @@
 <template>
   <div class="mx-auto px-4 py-8 space-y-6" :class="wide ? 'max-w-[96rem]' : 'max-w-6xl'">
-    <div class="flex flex-wrap items-end justify-between gap-4 print:hidden">
-      <h1 class="text-3xl font-bold">{{ title }}</h1>
-      <div class="flex flex-wrap gap-2"><slot name="actions" /></div>
+    <!-- Titel og faner holdes på en fast bredde, uanset om siden selv er "wide" (fx Familietræet) –
+         ellers knækker KinNav om på forskellige steder, og fanerne ser ud til at "hoppe" mellem sider. -->
+    <div class="max-w-6xl mx-auto w-full space-y-6">
+      <div class="flex flex-wrap items-end justify-between gap-4 print:hidden">
+        <h1 class="text-3xl font-bold">{{ title }}</h1>
+        <div class="flex flex-wrap gap-2"><slot name="actions" /></div>
+      </div>
+      <KinNav />
     </div>
-    <KinNav />
     <p v-if="store.error" class="panel text-loss">{{ store.error }}</p>
     <p v-else-if="!store.loaded" class="text-stone-400">Henter …</p>
     <slot v-else />
