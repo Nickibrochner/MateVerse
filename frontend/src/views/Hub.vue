@@ -6,16 +6,28 @@
     </section>
 
     <section>
-      <h2 class="section-title">Apps</h2>
-      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <li v-for="m in MATES" :key="m.id">
+      <div class="flex items-center gap-2">
+        <h2 class="section-title !mb-0">Apps</h2>
+        <span class="text-xs text-stone-400">Træk et kort for at ændre rækkefølgen</span>
+      </div>
+      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
+        <li
+          v-for="(m, i) in orderedMates" :key="m.id"
+          draggable="true"
+          @dragstart="onDragStart(i)"
+          @dragover.prevent
+          @dragenter.prevent="dragOver = i"
+          @drop="onDrop(i)"
+          @dragend="dragFrom = null; dragOver = null"
+          :class="{ 'opacity-40': dragFrom === i, 'ring-2 ring-accent rounded-xl': dragOver === i && dragFrom !== i }"
+        >
           <component
             :is="m.href ? 'a' : m.status === 'ready' ? 'router-link' : 'div'"
             :href="m.href"
             :target="m.href ? '_blank' : undefined"
             :rel="m.href ? 'noopener' : undefined"
             :to="!m.href && m.status === 'ready' ? `/${m.id}` : undefined"
-            class="panel h-full flex flex-col gap-3 transition-all"
+            class="panel h-full flex flex-col gap-3 transition-all cursor-grab active:cursor-grabbing"
             :class="m.status === 'ready' ? 'hover:-translate-y-0.5 hover:shadow-md group' : 'opacity-60'"
             :style="{ '--accent': m.accent, '--accent-soft': m.accentSoft }"
           >
@@ -23,8 +35,8 @@
               <span class="grid place-items-center w-12 h-12 rounded-xl bg-accent-soft text-2xl">{{ m.icon }}</span>
               <div class="min-w-0">
                 <div class="font-display text-lg font-bold text-stone-900 group-hover:text-accent">{{ m.name }}</div>
-                <span v-if="m.status === 'ready'" class="tag bg-accent-soft text-accent">{{ m.href ? 'Åbner i nyt vindue' : 'Klar' }}</span>
-                <span v-else class="tag bg-stone-100 text-stone-500">Kommer snart</span>
+                <span v-if="m.href" class="tag bg-accent-soft text-accent">Åbner i nyt vindue</span>
+                <span v-else-if="m.status !== 'ready'" class="tag bg-stone-100 text-stone-500">Kommer snart</span>
               </div>
             </div>
             <p class="text-sm text-stone-600 flex-1">{{ m.description }}</p>
@@ -65,10 +77,10 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { MATES } from '../mates'
 import { useUsersStore } from '../stores/users'
 import { stockmateApi } from '../mates/stockmate/api'
 import { gainClass, money, signed } from '../lib/format'
+import { orderedMates, reorderMates } from '../lib/mateOrder'
 
 const usersStore = useUsersStore()
 const newUser = ref('')
@@ -76,6 +88,21 @@ const saving = ref(false)
 const userError = ref<string | null>(null)
 /** null = henter, undefined = fejl */
 const stockSummary = ref<{ value: number; unrealized: number } | null | undefined>(null)
+
+const dragFrom = ref<number | null>(null)
+const dragOver = ref<number | null>(null)
+function onDragStart(i: number) {
+  dragFrom.value = i
+}
+function onDrop(i: number) {
+  if (dragFrom.value === null || dragFrom.value === i) return
+  const ids = orderedMates.value.map(m => m.id)
+  const [moved] = ids.splice(dragFrom.value, 1)
+  ids.splice(i, 0, moved)
+  reorderMates(ids)
+  dragFrom.value = null
+  dragOver.value = null
+}
 
 onMounted(async () => {
   usersStore.load()
