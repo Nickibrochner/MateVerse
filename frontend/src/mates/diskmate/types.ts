@@ -240,3 +240,37 @@ export interface AutoImportSummary {
   files_processed: AutoImportFileResult[]
   errors: AutoImportError[]
 }
+
+export const TEE_COLORS = ['Rød', 'Gul', 'Hvid'] as const
+export type TeeColor = typeof TEE_COLORS[number]
+
+export interface CaddieNote {
+  course_hole_id: number
+  tee_color: TeeColor
+  par: number | null
+  length_meters: number | null
+  elevation_meters: number | null
+  elevated_basket: boolean
+  fairway_type: string | null
+  throw_shape: string | null
+  ground_surface: string | null
+  hazards: string | null
+  recommended_throw: string | null
+  recommended_disc: string | null
+  notes: string | null
+  image_path: string | null
+}
+
+export interface CaddieNoteInput {
+  par: number | null
+  length_meters: number | null
+  elevation_meters: number | null
+  elevated_basket: boolean
+  fairway_type: string | null
+  throw_shape: string | null
+  ground_surface: string | null
+  hazards: string | null
+  recommended_throw: string | null
+  recommended_disc: string | null
+  notes: string | null
+}
