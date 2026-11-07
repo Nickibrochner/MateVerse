@@ -5,7 +5,7 @@
  */
 
 /** Domus er sit eget projekt (Python/FastAPI) med egen docker compose – ikke en mate-plugin i denne hub. */
-const DOMUS_URL = import.meta.env.VITE_DOMUS_URL ?? 'http://localhost:8080'
+const DOMUS_URL = import.meta.env.VITE_DOMUS_URL ?? 'http://localhost:8181'
 export interface MateInfo {
   id: string
   name: string
