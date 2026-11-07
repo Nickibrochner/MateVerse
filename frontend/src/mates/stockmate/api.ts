@@ -103,6 +103,31 @@ export interface HistoricalPrice {
   close: number
 }
 
+export interface CryptoHolding {
+  id: number
+  coin_id: string
+  symbol: string
+  name: string
+  amount: number
+  platform: string
+  last_known_price_usd: number | null
+  last_known_price_dkk: number | null
+  last_price_updated: string | null
+  updated_at: string
+}
+
+export interface CryptoSettings {
+  coinbase_key_name: string | null
+  has_coinbase_private_key: boolean
+  has_coingecko_api_key: boolean
+}
+
+export interface CryptoSettingsInput {
+  coinbase_key_name?: string
+  coinbase_private_key?: string
+  coingecko_api_key?: string
+}
+
 const base = '/stockmate'
 
 export const stockmateApi = {
@@ -121,4 +146,15 @@ export const stockmateApi = {
   snapshots: (userId: number, days: number) => request<Snapshot[]>(`${base}/users/${userId}/snapshots?days=${days}`),
   history: (ticker: string, period: string) => request<HistoricalPrice[]>(`${base}/history/${encodeURIComponent(ticker)}?period=${period}`),
   taxSummary: (userId: number) => request<TaxYearSummary[]>(`${base}/users/${userId}/tax-summary`),
+  cryptoHoldings: () => request<CryptoHolding[]>(`${base}/crypto/holdings`),
+  cryptoSettings: () => request<CryptoSettings>(`${base}/crypto/settings`),
+  saveCryptoSettings: (body: CryptoSettingsInput) => request<{ ok: boolean }>(`${base}/crypto/settings`, json('POST', body)),
+  syncCoinbase: () => request<{ synced: number }>(`${base}/crypto/sync-coinbase`, { method: 'POST' }),
+  refreshCryptoPrices: () => request<{ updated: number }>(`${base}/crypto/refresh-prices`, { method: 'POST' }),
+  syncAllCrypto: () => request<{
+    coinbase: { synced: number } | { error: string }
+    prices: { updated: number } | { error: string }
+  }>(`${base}/crypto/sync-all`, { method: 'POST' }),
+  importUpholdCsv: (csvContent: string) => request<{ imported: number }>(`${base}/crypto/import-uphold`, json('POST', { csv_content: csvContent })),
+  cryptoHistory: (coinId: string, days: string) => request<HistoricalPrice[]>(`${base}/crypto/history/${encodeURIComponent(coinId)}?days=${days}`),
 }

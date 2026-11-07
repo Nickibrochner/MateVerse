@@ -3,6 +3,9 @@ import { db } from '../../db'
 import { HttpError, httpErrors } from '../../lib/http'
 import { clearQuoteCache, getFxRate, getHistoricalPrices, getQuote, searchTickers } from './market'
 import { defaultBrokerage, firstError, positionKey, replay, round, taxSummary, totalDkk, type TxRow } from './portfolio'
+import {
+  getCryptoHistoricalPrices, getSetting, importUpholdCsv, refreshCryptoPrices, saveSetting, syncCoinbase,
+} from './crypto'
 
 export const DEPOT_TYPES = ['Frie midler', 'Aktiesparekonto', 'Ratepension', 'Aldersopsparing', 'Børneopsparing'] as const
 
@@ -57,6 +60,15 @@ async function holdingsFor(userId: number) {
 }
 
 const sum = (xs: (number | null)[]) => round(xs.reduce<number>((a, b) => a + (b ?? 0), 0))
+
+/** Omsætter en fejl fra et eksternt API (eller manglende nøgler) til en HttpError med en forståelig besked. */
+async function withUpstreamError<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (e) {
+    throw new HttpError(502, (e as Error).message)
+  }
+}
 
 /** Gemmer dagens porteføljeværdi, så Udvikling-grafen kan vise den over tid. Ét snapshot pr. bruger pr. dag. */
 function saveSnapshot(userId: number, valueDkk: number, investedDkk: number) {
@@ -221,3 +233,49 @@ export const stockmate = new Elysia({ prefix: '/stockmate' })
     })()
     return { deleted: params.id }
   }, { params: t.Object({ id: t.Numeric() }) })
+
+  // ── Krypto (fælles for husstanden, ikke pr. bruger) ──
+  .get('/crypto/holdings', () =>
+    db.query(
+      `SELECT * FROM stockmate_crypto_holding WHERE amount > 0.000000001
+       ORDER BY (amount * COALESCE(last_known_price_usd, 0)) DESC`,
+    ).all())
+
+  /** Kun om nøglerne er sat, ikke selve værdierne – Coinbase-nøglen vises ikke igen, når den først er gemt. */
+  .get('/crypto/settings', () => ({
+    coinbase_key_name: getSetting('coinbase_key_name'),
+    has_coinbase_private_key: !!getSetting('coinbase_private_key'),
+    has_coingecko_api_key: !!getSetting('coingecko_api_key'),
+  }))
+  .post('/crypto/settings', ({ body }) => {
+    for (const [key, value] of Object.entries(body)) if (value) saveSetting(key, value)
+    return { ok: true }
+  }, {
+    body: t.Object({
+      coinbase_key_name: t.Optional(t.String()),
+      coinbase_private_key: t.Optional(t.String()),
+      coingecko_api_key: t.Optional(t.String()),
+    }),
+  })
+
+  .post('/crypto/sync-coinbase', () => withUpstreamError(() => syncCoinbase()).then(synced => ({ synced })))
+  .post('/crypto/refresh-prices', () => withUpstreamError(() => refreshCryptoPrices()).then(updated => ({ updated })))
+  .post('/crypto/sync-all', async () => {
+    const [coinbase, prices] = await Promise.allSettled([syncCoinbase(), refreshCryptoPrices()])
+    return {
+      coinbase: coinbase.status === 'fulfilled' ? { synced: coinbase.value } : { error: coinbase.reason?.message ?? String(coinbase.reason) },
+      prices: prices.status === 'fulfilled' ? { updated: prices.value } : { error: prices.reason?.message ?? String(prices.reason) },
+    }
+  })
+  .post('/crypto/import-uphold', ({ body }) => {
+    try {
+      return { imported: importUpholdCsv(body.csv_content) }
+    } catch (e) {
+      throw new HttpError(400, (e as Error).message)
+    }
+  }, {
+    body: t.Object({ csv_content: t.String() }),
+  })
+  .get('/crypto/history/:coinId', ({ params, query }) => getCryptoHistoricalPrices(params.coinId, query.days ?? '90'), {
+    query: t.Object({ days: t.Optional(t.String()) }),
+  })
