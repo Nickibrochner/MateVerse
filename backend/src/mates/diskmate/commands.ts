@@ -100,6 +100,23 @@ const CADDIE_COLUMNS = `course_hole_id, tee_color, par, length_meters, elevation
 const caddieNote = (r: CaddieNoteRow) => ({ ...r, elevated_basket: !!r.elevated_basket })
 const caddieImagePath = (courseHoleId: number, teeColor: string) =>
   get<{ image_path: string | null }>('SELECT image_path FROM hole_caddie_notes WHERE course_hole_id = ?1 AND tee_color = ?2', courseHoleId, teeColor)?.image_path ?? null
+/** Fælles upsert for både save_caddie_note og import_caddie_book. */
+function upsertCaddieNote(courseHoleId: number, teeColor: string, input: Args) {
+  run(
+    `INSERT INTO hole_caddie_notes
+       (course_hole_id, tee_color, par, length_meters, elevation_meters, elevated_basket,
+        fairway_type, throw_shape, ground_surface, hazards, recommended_throw, recommended_disc, notes)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+     ON CONFLICT(course_hole_id, tee_color) DO UPDATE SET
+       par = excluded.par, length_meters = excluded.length_meters, elevation_meters = excluded.elevation_meters,
+       elevated_basket = excluded.elevated_basket, fairway_type = excluded.fairway_type, throw_shape = excluded.throw_shape,
+       ground_surface = excluded.ground_surface, hazards = excluded.hazards, recommended_throw = excluded.recommended_throw,
+       recommended_disc = excluded.recommended_disc, notes = excluded.notes`,
+    courseHoleId, teeColor, optNum(input, 'par'), optNum(input, 'length_meters'), optNum(input, 'elevation_meters'),
+    input.elevated_basket ? 1 : 0, optStr(input, 'fairway_type'), optStr(input, 'throw_shape'), optStr(input, 'ground_surface'),
+    optStr(input, 'hazards'), optStr(input, 'recommended_throw'), optStr(input, 'recommended_disc'), optStr(input, 'notes'),
+  )
+}
 /** En caddienote-række kan være oprettet uden rigtigt indhold (fx kun ved et billede, som tjekkes separat). */
 function hasCaddieData(e: CaddieNoteRow) {
   return e.par != null || e.length_meters != null || e.elevation_meters != null || !!e.elevated_basket
@@ -205,21 +222,7 @@ export const commands: Record<string, (a: Args) => unknown> = {
   },
   save_caddie_note: a => {
     const courseHoleId = num(a, 'courseHoleId'), teeColor = requireTeeColor(str(a, 'teeColor'))
-    const input = (a.input ?? {}) as Args
-    run(
-      `INSERT INTO hole_caddie_notes
-         (course_hole_id, tee_color, par, length_meters, elevation_meters, elevated_basket,
-          fairway_type, throw_shape, ground_surface, hazards, recommended_throw, recommended_disc, notes)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
-       ON CONFLICT(course_hole_id, tee_color) DO UPDATE SET
-         par = excluded.par, length_meters = excluded.length_meters, elevation_meters = excluded.elevation_meters,
-         elevated_basket = excluded.elevated_basket, fairway_type = excluded.fairway_type, throw_shape = excluded.throw_shape,
-         ground_surface = excluded.ground_surface, hazards = excluded.hazards, recommended_throw = excluded.recommended_throw,
-         recommended_disc = excluded.recommended_disc, notes = excluded.notes`,
-      courseHoleId, teeColor, optNum(input, 'par'), optNum(input, 'length_meters'), optNum(input, 'elevation_meters'),
-      input.elevated_basket ? 1 : 0, optStr(input, 'fairway_type'), optStr(input, 'throw_shape'), optStr(input, 'ground_surface'),
-      optStr(input, 'hazards'), optStr(input, 'recommended_throw'), optStr(input, 'recommended_disc'), optStr(input, 'notes'),
-    )
+    upsertCaddieNote(courseHoleId, teeColor, (a.input ?? {}) as Args)
     return caddieNote(get<CaddieNoteRow>(`SELECT ${CADDIE_COLUMNS} FROM hole_caddie_notes WHERE course_hole_id = ?1 AND tee_color = ?2`, courseHoleId, teeColor)!)
   },
   set_caddie_image: async a => {
@@ -259,6 +262,34 @@ export const commands: Record<string, (a: Args) => unknown> = {
   ).filter(hasCaddieData).map(({ course_hole_id, image_path, elevated_basket, course_name, hole_label, tee_color, ...rest }) => ({
     course_name, hole_label, tee_color, layouts: layoutsForCourseHole(course_hole_id), elevated_basket: !!elevated_basket, ...rest,
   })),
+  /**
+   * Importerer en caddiebog eksporteret herfra eller fra Tauri-udgaven (samme JSON-form som
+   * export_caddie_book). Rækker matches på banenavn + hul-label (uafhængigt af store/små
+   * bogstaver) – findes banen eller hullet ikke i forvejen, springes rækken over frem for at
+   * oprette gæt-baner. Rammer en række et eksisterende (hul, tee-farve)-par, overskrives det.
+   */
+  import_caddie_book: a => {
+    const entries = (a.entries ?? []) as Args[]
+    let imported = 0
+    const skipped: string[] = []
+    for (const e of entries) {
+      const courseName = typeof e.course_name === 'string' ? e.course_name.trim() : ''
+      const holeLabel = typeof e.hole_label === 'string' ? e.hole_label.trim() : ''
+      const teeColor = typeof e.tee_color === 'string' ? e.tee_color : ''
+      const where = `${courseName || '?'} / ${holeLabel || '?'} (${teeColor || '?'})`
+      if (!courseName || !holeLabel || !(TEE_COLORS as readonly string[]).includes(teeColor)) {
+        skipped.push(`${where}: ugyldig række`)
+        continue
+      }
+      const course = get<{ id: number }>('SELECT id FROM courses WHERE name = ?1 COLLATE NOCASE', courseName)
+      if (!course) { skipped.push(`${where}: banen findes ikke`); continue }
+      const hole = get<{ id: number }>('SELECT id FROM course_holes WHERE course_id = ?1 AND label = ?2 COLLATE NOCASE', course.id, holeLabel)
+      if (!hole) { skipped.push(`${where}: hullet findes ikke på banen`); continue }
+      upsertCaddieNote(hole.id, teeColor, e)
+      imported++
+    }
+    return { imported, skipped }
+  },
 
   // ── Spiller ──
   get_player_summary: a => playerSummary(str(a, 'playerName')),

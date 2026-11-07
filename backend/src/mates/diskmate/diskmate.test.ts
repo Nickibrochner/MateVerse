@@ -101,4 +101,23 @@ describe('Caddiebog', () => {
     expect(book[0]).toMatchObject({ tee_color: 'Rød', par: 4 })
     expect(Array.isArray(book[0].layouts)).toBe(true)
   })
+
+  test('import matcher på bane + hul-label og springer ukendte rækker over', async () => {
+    const book: any[] = await call('export_caddie_book')
+    const [entry] = book
+    const importResult = await call('import_caddie_book', {
+      entries: [
+        { ...entry, par: 5, notes: 'Importeret kopi' }, // kendt hul – skal opdatere
+        { course_name: 'Ukendt bane', hole_label: 'Hul 1', tee_color: 'Rød' }, // ukendt bane
+        { course_name: entry.course_name, hole_label: 'Hul 99', tee_color: 'Rød' }, // ukendt hul
+        { course_name: entry.course_name, hole_label: entry.hole_label, tee_color: 'Blå' }, // ugyldig farve
+      ],
+    })
+    expect(importResult.imported).toBe(1)
+    expect(importResult.skipped).toHaveLength(3)
+
+    const [stat] = await call('get_course_stats', { playerName: null })
+    const [ch] = await call('get_course_holes', { courseId: stat.course_id })
+    expect((await call('get_caddie_note', { courseHoleId: ch.id, teeColor: 'Rød' }))).toMatchObject({ par: 5, notes: 'Importeret kopi' })
+  })
 })
