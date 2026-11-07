@@ -1,8 +1,11 @@
 <template>
   <div class="max-w-6xl mx-auto px-4 py-10 space-y-8">
-    <section>
-      <h1 class="text-3xl font-bold">Stockmate</h1>
-      <p class="text-stone-500 mt-1">Vælg en portefølje. Kurser hentes fra Yahoo Finance og omregnes til DKK.</p>
+    <section class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold">Stockmate</h1>
+        <p class="text-stone-500 mt-1">Vælg en portefølje. Kurser hentes fra Yahoo Finance og omregnes til DKK.</p>
+      </div>
+      <router-link to="/stockmate/krypto" class="btn-secondary">🪙 Krypto</router-link>
     </section>
 
     <p v-if="error" class="panel text-loss">{{ error }}</p>

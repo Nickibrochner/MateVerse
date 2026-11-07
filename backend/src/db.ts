@@ -349,6 +349,26 @@ const MIGRATIONS: string[] = [
    DROP TABLE stockmate_transaction;
    ALTER TABLE stockmate_transaction_new RENAME TO stockmate_transaction;
    CREATE INDEX IF NOT EXISTS stockmate_tx_user ON stockmate_transaction(user_id, transaction_date);`,
+
+  // 12: Stockmate — krypto. Delt beholdning for hele husstanden (ikke pr. bruger, ligesom
+  // Tauri-udgaven). 'setting' gemmer Coinbase/CoinGecko-nøgler ukrypteret efter aftale.
+  `CREATE TABLE IF NOT EXISTS stockmate_setting (
+     key TEXT PRIMARY KEY,
+     value TEXT NOT NULL
+   );
+   CREATE TABLE IF NOT EXISTS stockmate_crypto_holding (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     coin_id TEXT NOT NULL,
+     symbol TEXT NOT NULL,
+     name TEXT NOT NULL,
+     amount REAL NOT NULL,
+     platform TEXT NOT NULL,
+     last_known_price_usd REAL,
+     last_known_price_dkk REAL,
+     last_price_updated TEXT,
+     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+     UNIQUE(coin_id, platform)
+   );`,
 ]
 
 export function migrate(database: Database = db) {
