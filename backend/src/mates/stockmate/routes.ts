@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia'
 import { db } from '../../db'
 import { HttpError, httpErrors } from '../../lib/http'
-import { clearQuoteCache, getFxRate, getQuote, searchTickers } from './market'
+import { clearQuoteCache, getFxRate, getHistoricalPrices, getQuote, searchTickers } from './market'
 import { defaultBrokerage, firstError, positionKey, replay, round, type TxRow } from './portfolio'
 
 export const DEPOT_TYPES = ['Frie midler', 'Aktiesparekonto', 'Ratepension', 'Aldersopsparing', 'Børneopsparing'] as const
@@ -57,6 +57,15 @@ async function holdingsFor(userId: number) {
 }
 
 const sum = (xs: (number | null)[]) => round(xs.reduce<number>((a, b) => a + (b ?? 0), 0))
+
+/** Gemmer dagens porteføljeværdi, så Udvikling-grafen kan vise den over tid. Ét snapshot pr. bruger pr. dag. */
+function saveSnapshot(userId: number, valueDkk: number, investedDkk: number) {
+  db.query(
+    `INSERT INTO stockmate_portfolio_snapshot (user_id, snapshot_date, total_value_dkk, total_invested_dkk)
+     VALUES (?, date('now'), ?, ?)
+     ON CONFLICT(user_id, snapshot_date) DO UPDATE SET total_value_dkk = excluded.total_value_dkk, total_invested_dkk = excluded.total_invested_dkk`,
+  ).run(userId, valueDkk, investedDkk)
+}
 
 const txBody = t.Object({
   user_id: t.Integer(),
@@ -152,19 +161,30 @@ export const stockmate = new Elysia({ prefix: '/stockmate' })
       realized_dkk: results.get(r.id)?.realized_dkk != null ? round(results.get(r.id)!.realized_dkk!) : null,
       error: results.get(r.id)?.error ?? null,
     }))
-    return {
-      user,
-      holdings,
-      transactions,
-      totals: {
-        value_dkk: sum(holdings.map(h => h.value_dkk)),
-        cost_dkk: sum(holdings.map(h => h.cost_dkk)),
-        unrealized_dkk: sum(holdings.map(h => h.unrealized_dkk)),
-        realized_dkk: sum(transactions.map(t => t.realized_dkk)),
-        missing_prices: holdings.filter(h => h.price == null).length,
-      },
+    const totals = {
+      value_dkk: sum(holdings.map(h => h.value_dkk)),
+      cost_dkk: sum(holdings.map(h => h.cost_dkk)),
+      unrealized_dkk: sum(holdings.map(h => h.unrealized_dkk)),
+      realized_dkk: sum(transactions.map(t => t.realized_dkk)),
+      missing_prices: holdings.filter(h => h.price == null).length,
     }
+    if (holdings.length) saveSnapshot(params.id, totals.value_dkk, totals.cost_dkk)
+    return { user, holdings, transactions, totals }
   }, { params: t.Object({ id: t.Numeric() }) })
+
+  /** Porteføljeværdi dag for dag – til Udvikling-grafen. */
+  .get('/users/:id/snapshots', ({ params, query }) => {
+    const days = query.days ? Number(query.days) : 90
+    return db.query(
+      `SELECT snapshot_date, total_value_dkk, total_invested_dkk FROM stockmate_portfolio_snapshot
+       WHERE user_id = ?1 AND snapshot_date >= date('now', '-' || ?2 || ' days') ORDER BY snapshot_date ASC`,
+    ).all(params.id, days)
+  }, { params: t.Object({ id: t.Numeric() }), query: t.Object({ days: t.Optional(t.Numeric()) }) })
+
+  /** Historiske dagskurser for én aktie – til graf ved klik på en beholdning. */
+  .get('/history/:ticker', ({ params, query }) => getHistoricalPrices(params.ticker, query.period ?? '3mo'), {
+    query: t.Object({ period: t.Optional(t.String()) }),
+  })
 
   .get('/stocks', () => db.query('SELECT * FROM stockmate_stock ORDER BY ticker').all() as Stock[])
   .get('/search', ({ query }) => searchTickers(query.q ?? ''), { query: t.Object({ q: t.Optional(t.String()) }) })

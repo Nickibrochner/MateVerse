@@ -85,6 +85,17 @@ export interface SearchResult {
   exchange: string | null
 }
 
+export interface Snapshot {
+  snapshot_date: string
+  total_value_dkk: number
+  total_invested_dkk: number
+}
+
+export interface HistoricalPrice {
+  timestamp: number
+  close: number
+}
+
 const base = '/stockmate'
 
 export const stockmateApi = {
@@ -100,4 +111,6 @@ export const stockmateApi = {
   createTransaction: (body: TxInput) => request<Transaction>(`${base}/transactions`, json('POST', body)),
   updateTransaction: (id: number, body: TxInput) => request<Transaction>(`${base}/transactions/${id}`, json('PUT', body)),
   deleteTransaction: (id: number) => request<{ deleted: number }>(`${base}/transactions/${id}`, { method: 'DELETE' }),
+  snapshots: (userId: number, days: number) => request<Snapshot[]>(`${base}/users/${userId}/snapshots?days=${days}`),
+  history: (ticker: string, period: string) => request<HistoricalPrice[]>(`${base}/history/${encodeURIComponent(ticker)}?period=${period}`),
 }
