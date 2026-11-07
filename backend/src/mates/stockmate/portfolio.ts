@@ -5,7 +5,7 @@
  * flytter sig, når valutakursen ændrer sig.
  */
 
-export type TxType = 'Buy' | 'Sell'
+export type TxType = 'Buy' | 'Sell' | 'Dividend'
 
 export interface TxRow {
   id: number
@@ -58,7 +58,7 @@ export function replay(transactions: TxRow[]) {
       pos.quantity += tx.quantity
       pos.cost_dkk += gross + fee
       results.set(tx.id, { realized_dkk: null, error: null })
-    } else {
+    } else if (tx.type === 'Sell') {
       if (tx.quantity > pos.quantity + EPS) {
         results.set(tx.id, { realized_dkk: null, error: `Salget overstiger beholdningen (${round(pos.quantity)} stk.)` })
         positions.set(key, pos)
@@ -73,6 +73,9 @@ export function replay(transactions: TxRow[]) {
         pos.quantity = 0
         pos.cost_dkk = 0
       }
+    } else {
+      // Dividend rører aldrig beholdningen – udbyttet er ikke en realiseret gevinst
+      results.set(tx.id, { realized_dkk: null, error: null })
     }
     positions.set(key, pos)
   }
@@ -91,4 +94,32 @@ export const defaultBrokerage = (quantity: number, price: number, rate = 0.01) =
 export const round = (n: number, digits = 2) => {
   const f = 10 ** digits
   return Math.round((n + Number.EPSILON) * f) / f
+}
+
+/** Transaktionens samlede værdi i DKK – kurtage lægges oveni ved køb, trækkes fra ellers. */
+export const totalDkk = (tx: TxRow) =>
+  round((tx.quantity * tx.price_per_share + (tx.type === 'Buy' ? tx.brokerage_fee : -tx.brokerage_fee)) * tx.fx_rate)
+
+export interface TaxYearSummary {
+  year: string
+  depot_type: string
+  realized_gain_loss: number
+  dividend_income: number
+}
+
+/** Skatteopgørelse pr. år og depot – realiseret gevinst/tab fra salg, udbytte for sig. */
+export function taxSummary(transactions: TxRow[]): TaxYearSummary[] {
+  const { results } = replay(transactions)
+  const byKey = new Map<string, TaxYearSummary>()
+  for (const tx of transactions) {
+    const year = tx.transaction_date.slice(0, 4)
+    const key = `${year}|${tx.depot_type}`
+    const row = byKey.get(key) ?? { year, depot_type: tx.depot_type, realized_gain_loss: 0, dividend_income: 0 }
+    if (tx.type === 'Sell') row.realized_gain_loss += results.get(tx.id)?.realized_dkk ?? 0
+    if (tx.type === 'Dividend') row.dividend_income += totalDkk(tx)
+    byKey.set(key, row)
+  }
+  return [...byKey.values()]
+    .map(r => ({ ...r, realized_gain_loss: round(r.realized_gain_loss), dividend_income: round(r.dividend_income) }))
+    .sort((a, b) => b.year.localeCompare(a.year) || a.depot_type.localeCompare(b.depot_type))
 }

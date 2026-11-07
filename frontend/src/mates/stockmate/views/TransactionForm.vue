@@ -9,7 +9,7 @@
     <p v-if="loadError" class="panel text-loss">{{ loadError }}</p>
 
     <form v-else class="panel space-y-5" @submit.prevent="save">
-      <div class="grid grid-cols-2 gap-2">
+      <div class="grid grid-cols-3 gap-2">
         <button
           v-for="opt in TYPES"
           :key="opt.id"
@@ -19,6 +19,9 @@
           @click="form.type = opt.id"
         >{{ opt.label }}</button>
       </div>
+      <p v-if="form.type === 'Dividend'" class="text-xs text-stone-500 -mt-3">
+        Indtast fx antal aktier som "Antal" og udbytte pr. aktie som "Kurs pr. aktie" – eller 1 og det samlede udbytte.
+      </p>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="sm:col-span-2">
@@ -65,8 +68,8 @@
             @input="fee = numberOrNull(($event.target as HTMLInputElement).value)"
           >
           <p class="text-xs text-stone-500 mt-1">
-            <template v-if="fee == null">Standard {{ rate * 100 }} % af handelsværdien</template>
-            <button v-else type="button" class="text-accent hover:underline" @click="fee = null">Brug standard ({{ rate * 100 }} %)</button>
+            <template v-if="fee == null">Standard {{ form.type === 'Dividend' ? '0' : rate * 100 }} % af handelsværdien</template>
+            <button v-else type="button" class="text-accent hover:underline" @click="fee = null">Brug standard ({{ form.type === 'Dividend' ? '0' : rate * 100 }} %)</button>
           </p>
         </div>
         <div>
@@ -117,6 +120,7 @@ import { money, today } from '../../../lib/format'
 const TYPES: { id: TxType; label: string }[] = [
   { id: 'Buy', label: 'Køb' },
   { id: 'Sell', label: 'Salg' },
+  { id: 'Dividend', label: 'Udbytte' },
 ]
 
 const route = useRoute()
@@ -154,7 +158,7 @@ const depotOptions = computed(() =>
   form.depot_type && !depotTypes.value.includes(form.depot_type) ? [form.depot_type, ...depotTypes.value] : depotTypes.value)
 
 const gross = computed(() => (form.quantity || 0) * (form.price_per_share || 0))
-const defaultFee = computed(() => Math.round(gross.value * rate.value * 100) / 100)
+const defaultFee = computed(() => (form.type === 'Dividend' ? 0 : Math.round(gross.value * rate.value * 100) / 100))
 const feeValue = computed(() => fee.value ?? defaultFee.value)
 const totalDkk = computed(() =>
   (gross.value + (form.type === 'Buy' ? feeValue.value : -feeValue.value)) * (form.fx_rate || 0))

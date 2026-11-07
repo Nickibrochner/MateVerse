@@ -1,6 +1,6 @@
 import { json, request } from '../../api'
 
-export type TxType = 'Buy' | 'Sell'
+export type TxType = 'Buy' | 'Sell' | 'Dividend'
 
 export interface Holding {
   key: string
@@ -85,6 +85,13 @@ export interface SearchResult {
   exchange: string | null
 }
 
+export interface TaxYearSummary {
+  year: string
+  depot_type: string
+  realized_gain_loss: number
+  dividend_income: number
+}
+
 export interface Snapshot {
   snapshot_date: string
   total_value_dkk: number
@@ -113,4 +120,5 @@ export const stockmateApi = {
   deleteTransaction: (id: number) => request<{ deleted: number }>(`${base}/transactions/${id}`, { method: 'DELETE' }),
   snapshots: (userId: number, days: number) => request<Snapshot[]>(`${base}/users/${userId}/snapshots?days=${days}`),
   history: (ticker: string, period: string) => request<HistoricalPrice[]>(`${base}/history/${encodeURIComponent(ticker)}?period=${period}`),
+  taxSummary: (userId: number) => request<TaxYearSummary[]>(`${base}/users/${userId}/tax-summary`),
 }

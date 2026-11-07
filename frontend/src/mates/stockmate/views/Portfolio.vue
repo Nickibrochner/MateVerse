@@ -14,6 +14,7 @@
         <h1 class="text-3xl font-bold">{{ data?.user.username ?? '…' }}s portefølje</h1>
       </div>
       <div class="flex gap-2">
+        <router-link :to="`/stockmate/portfolio/${userId}/skat`" class="btn-secondary">🧾 Skat</router-link>
         <button type="button" class="btn-secondary" :disabled="loading" @click="refresh">
           {{ loading ? 'Henter …' : '↻ Opdater kurser' }}
         </button>
@@ -121,7 +122,12 @@
       </section>
 
       <section>
-        <h2 class="section-title">Transaktioner</h2>
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h2 class="section-title !mb-0">Transaktioner</h2>
+          <button type="button" class="btn-secondary !text-xs" :disabled="!data.transactions.length" @click="exportTransactionsCsv">
+            ⬇️ Eksportér CSV
+          </button>
+        </div>
         <div class="panel !p-0 overflow-x-auto">
           <p v-if="!data.transactions.length" class="p-5 text-stone-500">Ingen transaktioner registreret endnu.</p>
           <table v-else class="table">
@@ -143,9 +149,7 @@
               <tr v-for="t in data.transactions" :key="t.id" :class="t.error && 'bg-red-50'">
                 <td>{{ date(t.transaction_date) }}</td>
                 <td>
-                  <span class="tag" :class="t.type === 'Buy' ? 'bg-accent-soft text-accent' : 'bg-amber-50 text-amber-700'">
-                    {{ t.type === 'Buy' ? 'Køb' : 'Salg' }}
-                  </span>
+                  <span class="tag" :class="TYPE_TAG_CLASS[t.type]">{{ TYPE_LABEL[t.type] }}</span>
                 </td>
                 <td class="font-semibold">{{ t.ticker }}</td>
                 <td class="text-stone-500">{{ t.depot_type }}</td>
@@ -199,8 +203,16 @@ import { useRoute } from 'vue-router'
 import { stockmateApi, type Portfolio } from '../api'
 import { useUsersStore } from '../../../stores/users'
 import { date, gainClass, money, percent, quantity, signed } from '../../../lib/format'
+import { downloadCsv } from '../../../lib/csv'
 import Modal from '../../../components/Modal.vue'
 import LineChart from '../components/LineChart.vue'
+
+const TYPE_LABEL: Record<string, string> = { Buy: 'Køb', Sell: 'Salg', Dividend: 'Udbytte' }
+const TYPE_TAG_CLASS: Record<string, string> = {
+  Buy: 'bg-accent-soft text-accent',
+  Sell: 'bg-amber-50 text-amber-700',
+  Dividend: 'bg-emerald-50 text-emerald-700',
+}
 
 const route = useRoute()
 const usersStore = useUsersStore()
@@ -311,6 +323,16 @@ async function remove(id: number) {
   } catch (e) {
     deleteError.value = (e as Error).message
   }
+}
+
+function exportTransactionsCsv() {
+  if (!data.value) return
+  const header = ['Dato', 'Type', 'Aktie', 'Depot', 'Antal', 'Pris pr. aktie', 'Valuta', 'Kurtage', 'Total (DKK)', 'Realiseret (DKK)']
+  const body = data.value.transactions.map(t => [
+    t.transaction_date, TYPE_LABEL[t.type] ?? t.type, t.ticker, t.depot_type, t.quantity, t.price_per_share,
+    t.currency, t.brokerage_fee, t.total_dkk ?? 0, t.realized_dkk ?? '',
+  ])
+  downloadCsv(`stockmate-transaktioner-${data.value.user.username}.csv`, [header, ...body])
 }
 
 watch(userId, () => {
