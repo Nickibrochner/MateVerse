@@ -26,6 +26,20 @@
       </div>
     </div>
 
+    <div class="form-card">
+      <h2>Eksportér Caddiebog som JSON</h2>
+      <p class="hint">
+        Samler taktiske scouting-noter for alle fysiske huller på tværs af alle baner — par,
+        længde, højdeforskel, fairway-type, kastelinje, underlag, taktik og noter — i én fil,
+        klar til en LLM eller anden analyse.
+      </p>
+      <div class="form-actions">
+        <button class="btn btn-accent" :disabled="exportingCaddie" @click="exportCaddieBook">
+          {{ exportingCaddie ? 'Eksporterer…' : '⬇️ Eksportér Caddiebog' }}
+        </button>
+      </div>
+    </div>
+
     <p v-if="message" class="success-msg">{{ message }}</p>
     <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
   </div>
@@ -37,6 +51,7 @@ import { downloadJson, invoke, errText } from '../invoke'
 
 const backingUp = ref(false)
 const exportingAll = ref(false)
+const exportingCaddie = ref(false)
 const message = ref('')
 const errorMsg = ref('')
 
@@ -65,6 +80,20 @@ async function exportAll() {
     errorMsg.value = e instanceof Error ? e.message : errText(e)
   } finally {
     exportingAll.value = false
+  }
+}
+
+async function exportCaddieBook() {
+  message.value = ''
+  errorMsg.value = ''
+  exportingCaddie.value = true
+  try {
+    downloadJson(`diskmate-caddiebog-${todayStamp()}.json`, await invoke('export_caddie_book'))
+    message.value = 'Caddiebog eksporteret.'
+  } catch (e) {
+    errorMsg.value = errText(e)
+  } finally {
+    exportingCaddie.value = false
   }
 }
 

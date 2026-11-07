@@ -73,6 +73,40 @@ function recalculateRound(roundId: number) {
 
 const players = () => all<{ player_name: string }>('SELECT DISTINCT player_name FROM rounds ORDER BY player_name COLLATE NOCASE').map(r => r.player_name)
 
+// ── Caddiebog ──
+const TEE_COLORS = ['Rød', 'Gul', 'Hvid'] as const
+function requireTeeColor(color: string) {
+  if (!(TEE_COLORS as readonly string[]).includes(color)) throw new HttpError(400, `Ukendt tee-farve: ${color}`)
+  return color
+}
+interface CaddieNoteRow {
+  course_hole_id: number
+  tee_color: string
+  par: number | null
+  length_meters: number | null
+  elevation_meters: number | null
+  elevated_basket: number
+  fairway_type: string | null
+  throw_shape: string | null
+  ground_surface: string | null
+  hazards: string | null
+  recommended_throw: string | null
+  recommended_disc: string | null
+  notes: string | null
+  image_path: string | null
+}
+const CADDIE_COLUMNS = `course_hole_id, tee_color, par, length_meters, elevation_meters, elevated_basket,
+  fairway_type, throw_shape, ground_surface, hazards, recommended_throw, recommended_disc, notes, image_path`
+const caddieNote = (r: CaddieNoteRow) => ({ ...r, elevated_basket: !!r.elevated_basket })
+const caddieImagePath = (courseHoleId: number, teeColor: string) =>
+  get<{ image_path: string | null }>('SELECT image_path FROM hole_caddie_notes WHERE course_hole_id = ?1 AND tee_color = ?2', courseHoleId, teeColor)?.image_path ?? null
+/** En caddienote-række kan være oprettet uden rigtigt indhold (fx kun ved et billede, som tjekkes separat). */
+function hasCaddieData(e: CaddieNoteRow) {
+  return e.par != null || e.length_meters != null || e.elevation_meters != null || !!e.elevated_basket
+    || e.fairway_type != null || e.throw_shape != null || e.ground_surface != null || e.hazards != null
+    || e.recommended_throw != null || e.recommended_disc != null || e.notes != null
+}
+
 export const commands: Record<string, (a: Args) => unknown> = {
   // ── Import ──
   import_csv: a => importCsv(str(a, 'content')),
@@ -163,6 +197,68 @@ export const commands: Record<string, (a: Args) => unknown> = {
       }
     })()
   },
+
+  get_caddie_note: a => {
+    const courseHoleId = num(a, 'courseHoleId'), teeColor = requireTeeColor(str(a, 'teeColor'))
+    const row = get<CaddieNoteRow>(`SELECT ${CADDIE_COLUMNS} FROM hole_caddie_notes WHERE course_hole_id = ?1 AND tee_color = ?2`, courseHoleId, teeColor)
+    return row ? caddieNote(row) : null
+  },
+  save_caddie_note: a => {
+    const courseHoleId = num(a, 'courseHoleId'), teeColor = requireTeeColor(str(a, 'teeColor'))
+    const input = (a.input ?? {}) as Args
+    run(
+      `INSERT INTO hole_caddie_notes
+         (course_hole_id, tee_color, par, length_meters, elevation_meters, elevated_basket,
+          fairway_type, throw_shape, ground_surface, hazards, recommended_throw, recommended_disc, notes)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+       ON CONFLICT(course_hole_id, tee_color) DO UPDATE SET
+         par = excluded.par, length_meters = excluded.length_meters, elevation_meters = excluded.elevation_meters,
+         elevated_basket = excluded.elevated_basket, fairway_type = excluded.fairway_type, throw_shape = excluded.throw_shape,
+         ground_surface = excluded.ground_surface, hazards = excluded.hazards, recommended_throw = excluded.recommended_throw,
+         recommended_disc = excluded.recommended_disc, notes = excluded.notes`,
+      courseHoleId, teeColor, optNum(input, 'par'), optNum(input, 'length_meters'), optNum(input, 'elevation_meters'),
+      input.elevated_basket ? 1 : 0, optStr(input, 'fairway_type'), optStr(input, 'throw_shape'), optStr(input, 'ground_surface'),
+      optStr(input, 'hazards'), optStr(input, 'recommended_throw'), optStr(input, 'recommended_disc'), optStr(input, 'notes'),
+    )
+    return caddieNote(get<CaddieNoteRow>(`SELECT ${CADDIE_COLUMNS} FROM hole_caddie_notes WHERE course_hole_id = ?1 AND tee_color = ?2`, courseHoleId, teeColor)!)
+  },
+  set_caddie_image: async a => {
+    const courseHoleId = num(a, 'courseHoleId'), teeColor = requireTeeColor(str(a, 'teeColor'))
+    const m = /^data:image\/(jpeg|jpg|png|gif|webp|bmp);base64,(.+)$/.exec(str(a, 'image'))
+    if (!m) throw new HttpError(400, 'Ugyldigt billede')
+    const bytes = Buffer.from(m[2], 'base64')
+    if (bytes.length > 8 * 1024 * 1024) throw new HttpError(413, 'Billedet er for stort (max 8 MB)')
+    run('INSERT OR IGNORE INTO hole_caddie_notes (course_hole_id, tee_color) VALUES (?1, ?2)', courseHoleId, teeColor)
+    const old = caddieImagePath(courseHoleId, teeColor)
+    const file = `caddie_${courseHoleId}_${teeColor}_${Date.now()}.${m[1] === 'jpeg' ? 'jpg' : m[1]}`
+    await Bun.write(join(IMAGES, file), bytes)
+    run('UPDATE hole_caddie_notes SET image_path = ?1 WHERE course_hole_id = ?2 AND tee_color = ?3', file, courseHoleId, teeColor)
+    removeImage(old)
+  },
+  remove_caddie_image: a => {
+    const courseHoleId = num(a, 'courseHoleId'), teeColor = requireTeeColor(str(a, 'teeColor'))
+    const old = caddieImagePath(courseHoleId, teeColor)
+    run('UPDATE hole_caddie_notes SET image_path = NULL WHERE course_hole_id = ?1 AND tee_color = ?2', courseHoleId, teeColor)
+    removeImage(old)
+  },
+  get_caddie_image_data_url: async a => {
+    const courseHoleId = num(a, 'courseHoleId'), teeColor = requireTeeColor(str(a, 'teeColor'))
+    const file = caddieImagePath(courseHoleId, teeColor)
+    if (!file || !existsSync(join(IMAGES, basename(file)))) return null
+    const ext = file.split('.').pop()!.toLowerCase()
+    const b64 = Buffer.from(await Bun.file(join(IMAGES, basename(file))).arrayBuffer()).toString('base64')
+    return `data:${MIME[ext] ?? 'image/png'};base64,${b64}`
+  },
+  /** Caddiebogen som JSON – kun (hul, tee-farve)-kombinationer med reelt indtastede data. */
+  export_caddie_book: () => all<CaddieNoteRow & { course_name: string; hole_label: string }>(
+    `SELECT ch.label AS hole_label, c.name AS course_name, n.*
+     FROM hole_caddie_notes n
+     JOIN course_holes ch ON ch.id = n.course_hole_id
+     JOIN courses c ON c.id = ch.course_id
+     ORDER BY c.name COLLATE NOCASE, ch.label COLLATE NOCASE, n.tee_color COLLATE NOCASE`,
+  ).filter(hasCaddieData).map(({ course_hole_id, image_path, elevated_basket, course_name, hole_label, tee_color, ...rest }) => ({
+    course_name, hole_label, tee_color, layouts: layoutsForCourseHole(course_hole_id), elevated_basket: !!elevated_basket, ...rest,
+  })),
 
   // ── Spiller ──
   get_player_summary: a => playerSummary(str(a, 'playerName')),
@@ -299,7 +395,7 @@ export const commands: Record<string, (a: Args) => unknown> = {
   export_all_json: () => players().map(buildPlayerExport),
   /** Alle DiskMates tabeller som JSON (erstatter kopien af databasefilen i Tauri-udgaven). */
   backup_database: () => {
-    const tables = ['courses', 'layouts', 'course_holes', 'holes', 'rounds', 'round_scores', 'discs', 'round_discs']
+    const tables = ['courses', 'layouts', 'course_holes', 'holes', 'rounds', 'round_scores', 'discs', 'round_discs', 'hole_caddie_notes']
     return { app: 'diskmate', version: 1, exported_at: new Date().toISOString(), tables: Object.fromEntries(tables.map(t => [t, all(`SELECT * FROM ${t}`)])) }
   },
 }

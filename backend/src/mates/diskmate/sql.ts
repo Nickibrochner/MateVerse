@@ -4,7 +4,7 @@ import { db } from '../../db'
  * DiskMates SQL er overtaget fra Tauri-udgaven med de oprindelige tabelnavne.
  * q() tilføjer `diskmate_`-præfikset, så forespørgslerne kan stå næsten ordret.
  */
-const TABLES = /\b(courses|layouts|course_holes|holes|rounds|round_scores|discs|round_discs)\b/g
+const TABLES = /\b(courses|layouts|course_holes|holes|rounds|round_scores|discs|round_discs|hole_caddie_notes)\b/g
 const cache = new Map<string, string>()
 
 export function q(sql: string) {

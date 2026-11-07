@@ -65,3 +65,40 @@ describe('UDisc-import', () => {
     expect(() => commands.import_csv({ content: 'Foo,Bar\n1,2' })).toThrow("Mangler kolonnen 'PlayerName'")
   })
 })
+
+describe('Caddiebog', () => {
+  test('gemmer og henter en caddienote pr. tee-farve', async () => {
+    const [stat] = await call('get_course_stats', { playerName: null })
+    const [ch] = await call('get_course_holes', { courseId: stat.course_id })
+    expect(await call('get_caddie_note', { courseHoleId: ch.id, teeColor: 'Rød' })).toBeNull()
+
+    const saved = await call('save_caddie_note', {
+      courseHoleId: ch.id,
+      teeColor: 'Rød',
+      input: {
+        par: 3, length_meters: 85, elevation_meters: null, elevated_basket: true, fairway_type: 'Åbent',
+        throw_shape: null, ground_surface: null, hazards: null, recommended_throw: null, recommended_disc: null,
+        notes: 'Snævert landingsområde',
+      },
+    })
+    expect(saved).toMatchObject({ par: 3, length_meters: 85, elevated_basket: true, fairway_type: 'Åbent', notes: 'Snævert landingsområde' })
+
+    // Samme (hul, tee-farve) opdateres i stedet for at oprette en ny række
+    await call('save_caddie_note', { courseHoleId: ch.id, teeColor: 'Rød', input: { ...saved, par: 4 } })
+    expect((await call('get_caddie_note', { courseHoleId: ch.id, teeColor: 'Rød' })).par).toBe(4)
+
+    // En anden tee-farve på samme hul er en separat note
+    expect(await call('get_caddie_note', { courseHoleId: ch.id, teeColor: 'Gul' })).toBeNull()
+  })
+
+  test('ukendt tee-farve afvises', () => {
+    expect(() => commands.get_caddie_note({ courseHoleId: 1, teeColor: 'Blå' })).toThrow('Ukendt tee-farve: Blå')
+  })
+
+  test('eksport medtager kun huller med reelt indtastet data', async () => {
+    const book: any[] = await call('export_caddie_book')
+    expect(book).toHaveLength(1)
+    expect(book[0]).toMatchObject({ tee_color: 'Rød', par: 4 })
+    expect(Array.isArray(book[0].layouts)).toBe(true)
+  })
+})

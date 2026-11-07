@@ -295,6 +295,27 @@ const MIGRATIONS: string[] = [
   // så tabellerne droppes her i stedet.
   `DROP TABLE IF EXISTS savemate_contribution;
    DROP TABLE IF EXISTS savemate_goal;`,
+
+  // 9: DiskMate — Caddiebog. Taktiske scouting-noter pr. fysisk hul, opdelt pr. tee-farve
+  // (Rød/Gul/Hvid), da samme kurv kan have forskellig par/længde alt efter hvilken farve
+  // man spiller fra. Uafhængig af layout/par-statistikken i diskmate_holes/diskmate_rounds.
+  `CREATE TABLE IF NOT EXISTS diskmate_hole_caddie_notes (
+     course_hole_id    INTEGER NOT NULL REFERENCES diskmate_course_holes(id) ON DELETE CASCADE,
+     tee_color         TEXT NOT NULL,
+     par               INTEGER,
+     length_meters     INTEGER,
+     elevation_meters  INTEGER,
+     elevated_basket   INTEGER NOT NULL DEFAULT 0,
+     fairway_type      TEXT,
+     throw_shape       TEXT,
+     ground_surface    TEXT,
+     hazards           TEXT,
+     recommended_throw TEXT,
+     recommended_disc  TEXT,
+     notes             TEXT,
+     image_path        TEXT,
+     PRIMARY KEY (course_hole_id, tee_color)
+   );`,
 ]
 
 export function migrate(database: Database = db) {

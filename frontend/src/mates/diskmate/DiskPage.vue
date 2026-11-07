@@ -29,6 +29,7 @@ const LINKS = [
   { to: '/diskmate/spiller', label: '👤 Spiller', view: () => import('./views/PlayerView.vue') },
   { to: '/diskmate/grupperunder', label: '🏆 Grupperunder', view: () => import('./views/SessionsView.vue') },
   { to: '/diskmate/huller', label: '⛳ Huller', view: () => import('./views/HolesView.vue') },
+  { to: '/diskmate/caddiebog', label: '📓 Caddiebog', view: () => import('./views/CaddieBookView.vue') },
   { to: '/diskmate/diske', label: '🥏 Diskkartotek', view: () => import('./views/DiscsView.vue') },
   { to: '/diskmate/indstillinger', label: '⚙️ Indstillinger', view: null },
 ]
