@@ -2,7 +2,7 @@ import { Elysia, t } from 'elysia'
 import { db } from '../../db'
 import { HttpError, httpErrors } from '../../lib/http'
 import { clearQuoteCache, getFxRate, getHistoricalPrices, getQuote, searchTickers } from './market'
-import { defaultBrokerage, firstError, positionKey, replay, round, type TxRow } from './portfolio'
+import { defaultBrokerage, firstError, positionKey, replay, round, taxSummary, totalDkk, type TxRow } from './portfolio'
 
 export const DEPOT_TYPES = ['Frie midler', 'Aktiesparekonto', 'Ratepension', 'Aldersopsparing', 'Børneopsparing'] as const
 
@@ -71,7 +71,7 @@ const txBody = t.Object({
   user_id: t.Integer(),
   ticker: t.String({ minLength: 1, maxLength: 20 }),
   depot_type: t.String({ minLength: 1 }),
-  type: t.Union([t.Literal('Buy'), t.Literal('Sell')]),
+  type: t.Union([t.Literal('Buy'), t.Literal('Sell'), t.Literal('Dividend')]),
   quantity: t.Number({ exclusiveMinimum: 0 }),
   price_per_share: t.Number({ minimum: 0 }),
   currency: t.String({ minLength: 3, maxLength: 3 }),
@@ -157,7 +157,7 @@ export const stockmate = new Elysia({ prefix: '/stockmate' })
     const holdings = await holdingsFor(params.id)
     const transactions = rows.map(r => ({
       ...r,
-      total_dkk: round((r.quantity * r.price_per_share + (r.type === 'Buy' ? r.brokerage_fee : -r.brokerage_fee)) * r.fx_rate),
+      total_dkk: totalDkk(r),
       realized_dkk: results.get(r.id)?.realized_dkk != null ? round(results.get(r.id)!.realized_dkk!) : null,
       error: results.get(r.id)?.error ?? null,
     }))
@@ -171,6 +171,9 @@ export const stockmate = new Elysia({ prefix: '/stockmate' })
     if (holdings.length) saveSnapshot(params.id, totals.value_dkk, totals.cost_dkk)
     return { user, holdings, transactions, totals }
   }, { params: t.Object({ id: t.Numeric() }) })
+
+  /** Skatteopgørelse pr. år og depot – realiseret gevinst/tab fra salg, udbytte for sig. */
+  .get('/users/:id/tax-summary', ({ params }) => taxSummary(txForUser(params.id)), { params: t.Object({ id: t.Numeric() }) })
 
   /** Porteføljeværdi dag for dag – til Udvikling-grafen. */
   .get('/users/:id/snapshots', ({ params, query }) => {

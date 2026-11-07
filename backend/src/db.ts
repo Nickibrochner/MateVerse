@@ -327,6 +327,28 @@ const MIGRATIONS: string[] = [
      total_invested_dkk REAL NOT NULL,
      UNIQUE(user_id, snapshot_date)
    );`,
+
+  // 11: Stockmate — tilføj 'Dividend' som transaktionstype (til skatteopgørelsen). SQLite kan
+  // ikke ændre et CHECK direkte, så tabellen genskabes med samme data og en udvidet CHECK.
+  `CREATE TABLE stockmate_transaction_new (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+     stock_id INTEGER NOT NULL REFERENCES stockmate_stock(id),
+     depot_type TEXT NOT NULL,
+     type TEXT NOT NULL CHECK (type IN ('Buy', 'Sell', 'Dividend')),
+     quantity REAL NOT NULL CHECK (quantity > 0),
+     price_per_share REAL NOT NULL CHECK (price_per_share >= 0),
+     currency TEXT NOT NULL DEFAULT 'DKK',
+     fx_rate REAL NOT NULL DEFAULT 1,
+     brokerage_fee REAL NOT NULL DEFAULT 0,
+     transaction_date TEXT NOT NULL,
+     note TEXT,
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   INSERT INTO stockmate_transaction_new SELECT * FROM stockmate_transaction;
+   DROP TABLE stockmate_transaction;
+   ALTER TABLE stockmate_transaction_new RENAME TO stockmate_transaction;
+   CREATE INDEX IF NOT EXISTS stockmate_tx_user ON stockmate_transaction(user_id, transaction_date);`,
 ]
 
 export function migrate(database: Database = db) {
