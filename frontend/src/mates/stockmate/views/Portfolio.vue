@@ -48,6 +48,25 @@
 
       <section>
         <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h2 class="section-title !mb-0">Udvikling</h2>
+          <div class="flex flex-wrap gap-1">
+            <button
+              v-for="p in SNAPSHOT_PERIODS"
+              :key="p.days"
+              type="button"
+              class="tag !text-xs"
+              :class="snapshotDays === p.days ? 'bg-accent text-white' : 'bg-white border border-stone-200 text-stone-500 hover:text-accent'"
+              @click="loadSnapshots(p.days)"
+            >{{ p.label }}</button>
+          </div>
+        </div>
+        <div class="panel">
+          <LineChart :points="snapshotPoints" empty-text="Ingen historik endnu — kom tilbage i morgen for at se udviklingen." />
+        </div>
+      </section>
+
+      <section>
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h2 class="section-title !mb-0">Beholdninger</h2>
           <div v-if="depots.length > 1" class="flex flex-wrap gap-1">
             <button
@@ -75,9 +94,9 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="h in holdings" :key="h.key">
+              <tr v-for="h in holdings" :key="h.key" class="cursor-pointer hover:bg-stone-50" @click="openHistory(h.stock.ticker)">
                 <td>
-                  <a :href="`https://www.bing.com/search?q=${encodeURIComponent(h.stock.ticker)}+stock`" target="_blank" rel="noopener" class="font-semibold hover:text-accent">
+                  <a :href="`https://www.bing.com/search?q=${encodeURIComponent(h.stock.ticker)}+stock`" target="_blank" rel="noopener" class="font-semibold hover:text-accent" @click.stop>
                     {{ h.stock.ticker }}
                   </a>
                   <div class="text-xs text-stone-400 max-w-[16rem] truncate">{{ h.stock.name ?? h.stock.currency }}</div>
@@ -156,6 +175,21 @@
         <p v-if="deleteError" class="text-loss text-sm mt-2">{{ deleteError }}</p>
       </section>
     </template>
+
+    <Modal :open="!!historyTicker" :title="`${historyTicker} — historisk kurs`" wide @close="historyTicker = null">
+      <div class="flex flex-wrap gap-1 mb-3">
+        <button
+          v-for="p in PRICE_PERIODS"
+          :key="p.period"
+          type="button"
+          class="tag !text-xs"
+          :class="historyPeriod === p.period ? 'bg-accent text-white' : 'bg-white border border-stone-200 text-stone-500 hover:text-accent'"
+          @click="loadHistory(p.period)"
+        >{{ p.label }}</button>
+      </div>
+      <p v-if="historyLoading" class="text-stone-500 py-6 text-center">Henter …</p>
+      <LineChart v-else :points="historyPoints" :color="historyColor" empty-text="Ingen kursdata fundet for perioden." />
+    </Modal>
   </div>
 </template>
 
@@ -165,6 +199,8 @@ import { useRoute } from 'vue-router'
 import { stockmateApi, type Portfolio } from '../api'
 import { useUsersStore } from '../../../stores/users'
 import { date, gainClass, money, percent, quantity, signed } from '../../../lib/format'
+import Modal from '../../../components/Modal.vue'
+import LineChart from '../components/LineChart.vue'
 
 const route = useRoute()
 const usersStore = useUsersStore()
@@ -178,6 +214,65 @@ const depotFilter = ref('')
 const pendingDelete = ref<number | null>(null)
 const deleteError = ref<string | null>(null)
 
+// ── Porteføljens udvikling over tid ──
+const SNAPSHOT_PERIODS = [
+  { label: '1M', days: 30 },
+  { label: '3M', days: 90 },
+  { label: '6M', days: 180 },
+  { label: '1Å', days: 365 },
+]
+const snapshotDays = ref(90)
+const snapshotPoints = ref<{ label: string; value: number }[]>([])
+
+async function loadSnapshots(days: number) {
+  snapshotDays.value = days
+  try {
+    const snapshots = await stockmateApi.snapshots(userId.value, days)
+    snapshotPoints.value = snapshots.map(s => ({
+      label: new Date(s.snapshot_date).toLocaleDateString('da-DK', { day: 'numeric', month: 'short' }),
+      value: s.total_value_dkk,
+    }))
+  } catch {
+    snapshotPoints.value = []
+  }
+}
+
+// ── Historisk kurs for en enkelt aktie ──
+const PRICE_PERIODS = [
+  { label: '1M', period: '1mo' },
+  { label: '3M', period: '3mo' },
+  { label: '6M', period: '6mo' },
+  { label: '1Å', period: '1y' },
+  { label: '5Å', period: '5y' },
+]
+const historyTicker = ref<string | null>(null)
+const historyPeriod = ref('3mo')
+const historyLoading = ref(false)
+const historyPoints = ref<{ label: string; value: number }[]>([])
+const historyColor = ref('#0078D4')
+
+async function openHistory(ticker: string) {
+  historyTicker.value = ticker
+  await loadHistory('3mo')
+}
+
+async function loadHistory(period: string) {
+  historyPeriod.value = period
+  historyLoading.value = true
+  try {
+    const prices = await stockmateApi.history(historyTicker.value!, period)
+    historyPoints.value = prices.map(p => ({
+      label: new Date(p.timestamp * 1000).toLocaleDateString('da-DK', { day: 'numeric', month: 'short' }),
+      value: p.close,
+    }))
+    historyColor.value = prices.length > 1 && prices[prices.length - 1].close < prices[0].close ? '#dc2626' : '#16a34a'
+  } catch {
+    historyPoints.value = []
+  } finally {
+    historyLoading.value = false
+  }
+}
+
 const depots = computed(() => [...new Set(data.value?.holdings.map(h => h.depot_type) ?? [])].sort())
 const holdings = computed(() =>
   (data.value?.holdings ?? [])
@@ -189,6 +284,7 @@ async function load() {
   error.value = null
   try {
     data.value = await stockmateApi.portfolio(userId.value)
+    await loadSnapshots(snapshotDays.value) // portfolio-kaldet gemmer dagens snapshot server-side
   } catch (e) {
     error.value = (e as Error).message
   } finally {

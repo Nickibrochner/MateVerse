@@ -316,6 +316,17 @@ const MIGRATIONS: string[] = [
      image_path        TEXT,
      PRIMARY KEY (course_hole_id, tee_color)
    );`,
+
+  // 10: Stockmate — porteføljehistorik. Ét snapshot pr. bruger pr. dag, gemt når porteføljen
+  // hentes (se routes.ts), så graferne kan vise udviklingen over tid.
+  `CREATE TABLE IF NOT EXISTS stockmate_portfolio_snapshot (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+     snapshot_date TEXT NOT NULL,
+     total_value_dkk REAL NOT NULL,
+     total_invested_dkk REAL NOT NULL,
+     UNIQUE(user_id, snapshot_date)
+   );`,
 ]
 
 export function migrate(database: Database = db) {

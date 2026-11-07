@@ -118,3 +118,30 @@ export async function searchTickers(q: string): Promise<SearchResult[]> {
 }
 
 export const clearQuoteCache = () => quoteCache.clear()
+
+export interface HistoricalPrice {
+  timestamp: number
+  close: number
+}
+
+const PERIODS = new Set(['1mo', '3mo', '6mo', '1y', '5y'])
+
+/** Historiske dagskurser til en graf. Ukendt periode falder tilbage til 3 måneder. */
+export async function getHistoricalPrices(ticker: string, period: string): Promise<HistoricalPrice[]> {
+  const range = PERIODS.has(period) ? period : '3mo'
+  try {
+    const json = await fetchJson(`${YAHOO}/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range}`)
+    const result = json?.chart?.result?.[0]
+    const timestamps: number[] = result?.timestamp ?? []
+    const closes: (number | null)[] = result?.indicators?.quote?.[0]?.close ?? []
+    const prices: HistoricalPrice[] = []
+    for (let i = 0; i < timestamps.length; i++) {
+      const close = closes[i]
+      if (typeof close === 'number') prices.push({ timestamp: timestamps[i], close })
+    }
+    return prices
+  } catch (e) {
+    console.warn(`Historiske kurser for ${ticker} kunne ikke hentes:`, (e as Error).message)
+    return []
+  }
+}
