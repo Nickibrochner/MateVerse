@@ -41,14 +41,14 @@
             </div>
             <p class="text-sm text-stone-600 flex-1">{{ m.description }}</p>
 
-            <!-- Lille live-overblik fra maten selv -->
-            <div v-if="m.id === 'stockmate'" class="text-sm border-t border-stone-100 pt-3">
-              <span v-if="stockSummary === null" class="text-stone-400">Henter …</span>
-              <span v-else-if="stockSummary === undefined" class="text-stone-400">Ingen forbindelse til serveren</span>
-              <span v-else>
-                Samlet værdi <strong class="tabular-nums">{{ money(stockSummary.value) }}</strong>
-                <span class="tabular-nums" :class="gainClass(stockSummary.unrealized)">({{ signed(stockSummary.unrealized) }})</span>
-              </span>
+            <!-- Lille live-overblik fra maten selv – hvilket tal vælges under Indstillinger → Kort-info -->
+            <div
+              v-if="activeCardInfoOption(m.id) && cardInfo[m.id]?.status !== 'empty'"
+              class="text-sm border-t border-stone-100 pt-3"
+            >
+              <span v-if="!cardInfo[m.id] || cardInfo[m.id].status === 'loading'" class="text-stone-400">Henter …</span>
+              <span v-else-if="cardInfo[m.id].status === 'error'" class="text-stone-400">Ingen forbindelse til serveren</span>
+              <span v-else class="tabular-nums">{{ cardInfo[m.id].text }}</span>
             </div>
           </component>
         </li>
@@ -76,18 +76,31 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useUsersStore } from '../stores/users'
-import { stockmateApi } from '../mates/stockmate/api'
-import { gainClass, money, signed } from '../lib/format'
+import { MATES } from '../mates'
 import { orderedMates, reorderMates } from '../lib/mateOrder'
+import { activeCardInfoOption } from '../lib/hubCardSettings'
 
 const usersStore = useUsersStore()
 const newUser = ref('')
 const saving = ref(false)
 const userError = ref<string | null>(null)
-/** null = henter, undefined = fejl */
-const stockSummary = ref<{ value: number; unrealized: number } | null | undefined>(null)
+
+interface CardInfoState { status: 'loading' | 'error' | 'empty' | 'ok'; text?: string }
+const cardInfo = reactive<Record<string, CardInfoState>>({})
+
+async function loadCardInfo(mateId: string) {
+  const option = activeCardInfoOption(mateId)
+  if (!option) return
+  cardInfo[mateId] = { status: 'loading' }
+  try {
+    const text = await option.fetch()
+    cardInfo[mateId] = text ? { status: 'ok', text } : { status: 'empty' }
+  } catch {
+    cardInfo[mateId] = { status: 'error' }
+  }
+}
 
 const dragFrom = ref<number | null>(null)
 const dragOver = ref<number | null>(null)
@@ -104,17 +117,9 @@ function onDrop(i: number) {
   dragOver.value = null
 }
 
-onMounted(async () => {
+onMounted(() => {
   usersStore.load()
-  try {
-    const rows = await stockmateApi.overview()
-    stockSummary.value = {
-      value: rows.reduce((a, r) => a + r.value_dkk, 0),
-      unrealized: rows.reduce((a, r) => a + r.unrealized_dkk, 0),
-    }
-  } catch {
-    stockSummary.value = undefined
-  }
+  for (const m of MATES) loadCardInfo(m.id)
 })
 
 async function addUser() {

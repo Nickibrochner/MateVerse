@@ -159,6 +159,12 @@ function restore(b: typeof backupBody.static) {
 export const kinmate = new Elysia({ prefix: '/kinmate' })
   .use(httpErrors)
 
+  /** Lette tællinger til fx hub-kortet – uden at hente hele datasættet som /data gør. */
+  .get('/summary', () => ({
+    persons: (db.query('SELECT COUNT(*) AS n FROM kinmate_person').get() as { n: number }).n,
+    open_tasks: (db.query(`SELECT COUNT(*) AS n FROM kinmate_forskningsopgave WHERE status != 'løst'`).get() as { n: number }).n,
+  }))
+
   /** Alt på én gang – frontenden holder det i en store, ligesom Tauri-udgaven. */
   .get('/data', () => ({
     persons: persons(),
