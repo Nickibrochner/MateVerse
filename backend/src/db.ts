@@ -510,6 +510,50 @@ const MIGRATIONS: string[] = [
    );
    CREATE INDEX IF NOT EXISTS idx_mate500_round_game ON mate500_round(game_id);
    CREATE INDEX IF NOT EXISTS idx_mate500_point_round ON mate500_round_point(round_id);`,
+
+  // 15: FoodMate — port af Tauri-udgaven. Kun den fulde "Opskrift"-model portes (titel, trin,
+  // portioner, tags, ingredienser med næringsværdier pr. 100 g). Den ældre engelske
+  // recipe/recipe_ingredient-model ("Måltider") og dens server-sync droppes bevidst — den var et
+  // simplere spejl af Opskrift uden trin/portioner/tags, og MateVerse er allerede den fælles server.
+  `CREATE TABLE IF NOT EXISTS foodmate_ingredient (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     navn TEXT NOT NULL UNIQUE,
+     energi_kcal REAL,
+     protein REAL,
+     kulhydrat REAL,
+     fedt REAL,
+     kostfibre REAL,
+     sukkerarter REAL,
+     maettet_fedt REAL,
+     salt REAL,
+     slettet INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   CREATE TABLE IF NOT EXISTS foodmate_recipe (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     titel TEXT NOT NULL,
+     beskrivelse TEXT,
+     tilberedningstid INTEGER,
+     portioner INTEGER NOT NULL DEFAULT 4,
+     tags TEXT,
+     slettet INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   CREATE TABLE IF NOT EXISTS foodmate_recipe_ingredient (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     recipe_id INTEGER NOT NULL REFERENCES foodmate_recipe(id) ON DELETE CASCADE,
+     ingredient_id INTEGER NOT NULL REFERENCES foodmate_ingredient(id),
+     maengde REAL NOT NULL,
+     UNIQUE(recipe_id, ingredient_id)
+   );
+   CREATE TABLE IF NOT EXISTS foodmate_recipe_step (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     recipe_id INTEGER NOT NULL REFERENCES foodmate_recipe(id) ON DELETE CASCADE,
+     position INTEGER NOT NULL,
+     tekst TEXT NOT NULL
+   );
+   CREATE INDEX IF NOT EXISTS idx_foodmate_recipe_ingredient ON foodmate_recipe_ingredient(recipe_id);
+   CREATE INDEX IF NOT EXISTS idx_foodmate_recipe_step ON foodmate_recipe_step(recipe_id);`,
 ]
 
 export function migrate(database: Database = db) {
