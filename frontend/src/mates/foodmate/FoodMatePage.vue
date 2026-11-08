@@ -19,6 +19,7 @@ import { useRoute } from 'vue-router'
 
 const LINKS = [
   { to: '/foodmate', label: '📖 Opskrifter', view: () => import('./views/RecipesView.vue') },
+  { to: '/foodmate/dagbog', label: '📅 Dagbog', view: () => import('./views/DagbogView.vue') },
   { to: '/foodmate/ingredienser', label: '🥕 Ingredienser', view: () => import('./views/IngredientsView.vue') },
   { to: '/foodmate/papirkurv', label: '🗑️ Papirkurv', view: () => import('./views/TrashView.vue') },
 ]

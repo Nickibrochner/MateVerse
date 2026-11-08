@@ -41,7 +41,7 @@
           {{ r.portioner }} {{ r.portioner === 1 ? 'portion' : 'portioner' }}
           <span v-if="r.tilberedningstid"> · ⏱ {{ r.tilberedningstid }} min</span>
         </p>
-        <p v-if="r.naering_pr_portion.energi_kcal != null" class="text-xs text-stone-400 mt-1">{{ Math.round(r.naering_pr_portion.energi_kcal) }} kcal / portion</p>
+        <p v-if="r.naering_pr_100g.energi_kcal != null" class="text-xs text-stone-400 mt-1">{{ Math.round(r.naering_pr_100g.energi_kcal) }} kcal / 100 g</p>
         <div class="flex flex-wrap gap-1 mt-2">
           <span v-for="t in (r.tags ?? '').split(',').map(x => x.trim()).filter(Boolean)" :key="t" class="tag bg-stone-100 text-stone-500 !text-[10px]">{{ t }}</span>
         </div>

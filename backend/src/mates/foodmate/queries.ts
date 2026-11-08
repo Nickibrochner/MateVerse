@@ -1,5 +1,5 @@
 import { db } from '../../db'
-import { type Nutrients, NUTRIENT_FELTER, prPortion, summerNaering } from './nutrition'
+import { forGram, type Nutrients, NUTRIENT_FELTER, pr100g, prPortion, summerNaering } from './nutrition'
 
 /**
  * Al forretningslogik for FoodMate: ingredienser, opskrifter (med trin og næringsberegning) og
@@ -106,9 +106,11 @@ export interface RecipeInput {
 export interface RecipeSummary extends Recipe {
   naering_total: Nutrients
   naering_pr_portion: Nutrients
+  naering_pr_100g: Nutrients
+  total_gram: number
 }
 
-function totalsForRecipes(recipeIds: number[]): Map<number, Nutrients> {
+function totalsForRecipes(recipeIds: number[]): Map<number, { naering: Nutrients; totalGram: number }> {
   if (!recipeIds.length) return new Map()
   const rows = db.query(
     `SELECT ri.recipe_id, ri.maengde, i.${NUTRIENT_FELTER.join(', i.')}
@@ -121,8 +123,11 @@ function totalsForRecipes(recipeIds: number[]): Map<number, Nutrients> {
     const { recipe_id, maengde, ...naering } = r
     byRecipe.set(recipe_id, [...(byRecipe.get(recipe_id) ?? []), { ingrediens: naering as Nutrients, gram: maengde }])
   }
-  const totals = new Map<number, Nutrients>()
-  for (const id of recipeIds) totals.set(id, summerNaering(byRecipe.get(id) ?? []))
+  const totals = new Map<number, { naering: Nutrients; totalGram: number }>()
+  for (const id of recipeIds) {
+    const linjer = byRecipe.get(id) ?? []
+    totals.set(id, { naering: summerNaering(linjer), totalGram: linjer.reduce((s, l) => s + l.gram, 0) })
+  }
   return totals
 }
 
@@ -141,7 +146,16 @@ export function listRecipes(search?: string, tag?: string, includeDeleted = fals
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
   const recipes = db.query(`SELECT * FROM foodmate_recipe ${where} ORDER BY titel ASC`).all(...params) as Recipe[]
   const totals = totalsForRecipes(recipes.map(r => r.id))
-  return recipes.map(r => ({ ...r, naering_total: totals.get(r.id)!, naering_pr_portion: prPortion(totals.get(r.id)!, r.portioner) }))
+  return recipes.map(r => {
+    const t = totals.get(r.id)!
+    return {
+      ...r,
+      naering_total: t.naering,
+      naering_pr_portion: prPortion(t.naering, r.portioner),
+      naering_pr_100g: pr100g(t.naering, t.totalGram),
+      total_gram: t.totalGram,
+    }
+  })
 }
 
 export function listAllTags(): string[] {
@@ -169,6 +183,8 @@ export interface RecipeDetail extends Recipe {
   trin: RecipeStep[]
   naering_total: Nutrients
   naering_pr_portion: Nutrients
+  naering_pr_100g: Nutrients
+  total_gram: number
 }
 
 export function getRecipe(id: number): Recipe | null {
@@ -190,12 +206,21 @@ export function getRecipeDetail(id: number): RecipeDetail | null {
     return { ingredient_id, navn, maengde, naering: naering as Nutrients }
   })
   const naering_total = summerNaering(ingredienser.map(l => ({ ingrediens: l.naering, gram: l.maengde })))
+  const total_gram = ingredienser.reduce((s, l) => s + l.maengde, 0)
 
   const trin = db.query('SELECT id, position, tekst FROM foodmate_recipe_step WHERE recipe_id = ? ORDER BY position ASC').all(
     id,
   ) as RecipeStep[]
 
-  return { ...recipe, ingredienser, trin, naering_total, naering_pr_portion: prPortion(naering_total, recipe.portioner) }
+  return {
+    ...recipe,
+    ingredienser,
+    trin,
+    naering_total,
+    naering_pr_portion: prPortion(naering_total, recipe.portioner),
+    naering_pr_100g: pr100g(naering_total, total_gram),
+    total_gram,
+  }
 }
 
 export function createRecipe(input: RecipeInput): Recipe {
@@ -248,6 +273,66 @@ export function replaceRecipeSteps(recipeId: number, steps: string[]): void {
     const t = tekst.trim()
     if (t) db.query('INSERT INTO foodmate_recipe_step (recipe_id, position, tekst) VALUES (?, ?, ?)').run(recipeId, i, t)
   })
+}
+
+// ── Dagbog ───────────────────────────────────────────────────────────────────
+
+export interface LogEntry {
+  id: number
+  recipe_id: number
+  recipe_titel: string
+  dato: string
+  gram: number
+  naering: Nutrients
+  created_at: string
+}
+
+const DATO_REGEX = /^\d{4}-\d{2}-\d{2}$/
+
+export function addLogEntry(recipeId: number, dato: string, gram: number): LogEntry {
+  if (!DATO_REGEX.test(dato)) throw new Error('Dato skal være på formen ÅÅÅÅ-MM-DD')
+  if (gram <= 0) throw new Error('Gram skal være større end 0')
+  if (!getRecipe(recipeId)) throw new Error('Opskriften findes ikke')
+  const row = db
+    .query('INSERT INTO foodmate_log (recipe_id, dato, gram) VALUES (?, ?, ?) RETURNING *')
+    .get(recipeId, dato, gram) as { id: number; recipe_id: number; dato: string; gram: number; created_at: string }
+  return toLogEntry(row)
+}
+
+function toLogEntry(row: { id: number; recipe_id: number; dato: string; gram: number; created_at: string }): LogEntry {
+  const detail = getRecipeDetail(row.recipe_id)
+  const tomNaering = Object.fromEntries(NUTRIENT_FELTER.map(f => [f, null])) as Nutrients
+  return {
+    id: row.id,
+    recipe_id: row.recipe_id,
+    recipe_titel: detail?.titel ?? '(slettet opskrift)',
+    dato: row.dato,
+    gram: row.gram,
+    naering: detail ? forGram(detail.naering_pr_100g, row.gram) : tomNaering,
+    created_at: row.created_at,
+  }
+}
+
+function sumNutrients(sets: Nutrients[]): Nutrients {
+  const ud = {} as Nutrients
+  for (const felt of NUTRIENT_FELTER) {
+    const vaerdier = sets.map(s => s[felt]).filter((v): v is number => v != null)
+    ud[felt] = vaerdier.length ? Math.round((vaerdier.reduce((s, v) => s + v, 0) + Number.EPSILON) * 100) / 100 : null
+  }
+  return ud
+}
+
+export function listLogForDate(dato: string): { entries: LogEntry[]; total: Nutrients } {
+  const rows = db.query('SELECT * FROM foodmate_log WHERE dato = ? ORDER BY created_at ASC').all(dato) as {
+    id: number; recipe_id: number; dato: string; gram: number; created_at: string
+  }[]
+  const entries = rows.map(toLogEntry)
+  const total = sumNutrients(entries.map(e => e.naering))
+  return { entries, total }
+}
+
+export function deleteLogEntry(id: number): void {
+  db.query('DELETE FROM foodmate_log WHERE id = ?').run(id)
 }
 
 // ── Papirkurv ────────────────────────────────────────────────────────────────

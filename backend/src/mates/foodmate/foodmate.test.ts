@@ -38,6 +38,23 @@ describe('næringsberegning', () => {
     expect(pr.protein).toBe(10)
     expect(pr.kulhydrat).toBeNull()
   })
+
+  test('pr100g: omregner samlet næring til pr. 100g af hele retten', () => {
+    const pr = nutrition.pr100g(
+      { energi_kcal: 1128, protein: 20, kulhydrat: null, fedt: null, kostfibre: null, sukkerarter: null, maettet_fedt: null, salt: null },
+      300, // samlet 300g
+    )
+    expect(pr.energi_kcal).toBeCloseTo(376, 0) // 1128/300*100
+    expect(pr.protein).toBeCloseTo(6.67, 1)
+  })
+
+  test('forGram: beregner næring for en given mængde ud fra pr. 100g', () => {
+    const forspist = nutrition.forGram(
+      { energi_kcal: 376, protein: 6.67, kulhydrat: null, fedt: null, kostfibre: null, sukkerarter: null, maettet_fedt: null, salt: null },
+      150,
+    )
+    expect(forspist.energi_kcal).toBeCloseTo(564, 0) // 376 * 1.5
+  })
 })
 
 describe('ingredienser', () => {
@@ -87,6 +104,8 @@ describe('opskrifter', () => {
     expect(detail.naering_total.energi_kcal).toBeCloseTo(1128, 1)
     expect(detail.naering_total.protein).toBeCloseTo(20, 1)
     expect(detail.naering_pr_portion.energi_kcal).toBeCloseTo(141, 0) // 1128/8
+    expect(detail.total_gram).toBe(300) // 200g mel + 100g sukker
+    expect(detail.naering_pr_100g.energi_kcal).toBeCloseTo(376, 0) // 1128/300*100
 
     // upsert opdaterer i stedet for at duplikere
     q.upsertRecipeIngredient(recipe.id, mel.id, 100)
@@ -106,6 +125,58 @@ describe('opskrifter', () => {
 
   test('portioner skal være mindst 1', () => {
     expect(() => q.createRecipe({ titel: 'Ugyldig', portioner: 0 })).toThrow('mindst 1')
+  })
+})
+
+describe('dagbog', () => {
+  test('logger forbrug af en opskrift ud fra gram, og beregner næring pr. logning', () => {
+    const mel = q.createIngredient({ navn: 'Rugmel', energi_kcal: 330, protein: 9 })
+    const recipe = q.createRecipe({ titel: 'Rugbrød', portioner: 4 })
+    q.upsertRecipeIngredient(recipe.id, mel.id, 500) // 500g -> 1650 kcal, pr 100g = 330 kcal
+
+    const entry = q.addLogEntry(recipe.id, '2026-11-09', 80)
+    expect(entry.recipe_titel).toBe('Rugbrød')
+    expect(entry.naering.energi_kcal).toBeCloseTo(264, 0) // 330 * 0.8
+
+    const { entries, total } = q.listLogForDate('2026-11-09')
+    expect(entries.length).toBe(1)
+    expect(total.energi_kcal).toBeCloseTo(264, 0)
+
+    expect(q.listLogForDate('2026-11-10').entries.length).toBe(0)
+  })
+
+  test('summerer flere logninger samme dag', () => {
+    const ing = q.createIngredient({ navn: 'Havregryn', energi_kcal: 375 })
+    const recipe = q.createRecipe({ titel: 'Havregrød', portioner: 2 })
+    q.upsertRecipeIngredient(recipe.id, ing.id, 200) // pr 100g = 375 kcal
+
+    q.addLogEntry(recipe.id, '2026-11-11', 50) // 187.5 kcal
+    q.addLogEntry(recipe.id, '2026-11-11', 100) // 375 kcal
+
+    const { entries, total } = q.listLogForDate('2026-11-11')
+    expect(entries.length).toBe(2)
+    expect(total.energi_kcal).toBeCloseTo(562.5, 1)
+  })
+
+  test('afviser ugyldig dato, ugyldig gram og ukendt opskrift', () => {
+    const ing = q.createIngredient({ navn: 'Ris' })
+    const recipe = q.createRecipe({ titel: 'Risret', portioner: 2 })
+    q.upsertRecipeIngredient(recipe.id, ing.id, 100)
+
+    expect(() => q.addLogEntry(recipe.id, '09-11-2026', 50)).toThrow('Dato')
+    expect(() => q.addLogEntry(recipe.id, '2026-11-09', 0)).toThrow('Gram')
+    expect(() => q.addLogEntry(999999, '2026-11-09', 50)).toThrow('findes ikke')
+  })
+
+  test('sletter en logning', () => {
+    const ing = q.createIngredient({ navn: 'Quinoa' })
+    const recipe = q.createRecipe({ titel: 'Quinoasalat', portioner: 2 })
+    q.upsertRecipeIngredient(recipe.id, ing.id, 100)
+    const entry = q.addLogEntry(recipe.id, '2026-11-12', 50)
+
+    expect(q.listLogForDate('2026-11-12').entries.length).toBe(1)
+    q.deleteLogEntry(entry.id)
+    expect(q.listLogForDate('2026-11-12').entries.length).toBe(0)
   })
 })
 

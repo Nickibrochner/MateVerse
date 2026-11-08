@@ -52,6 +52,8 @@ export interface Recipe {
 export interface RecipeSummary extends Recipe {
   naering_total: Nutrients
   naering_pr_portion: Nutrients
+  naering_pr_100g: Nutrients
+  total_gram: number
 }
 
 export interface RecipeIngredientLine {
@@ -72,6 +74,8 @@ export interface RecipeDetail extends Recipe {
   trin: RecipeStep[]
   naering_total: Nutrients
   naering_pr_portion: Nutrients
+  naering_pr_100g: Nutrients
+  total_gram: number
 }
 
 export interface RecipeInput {
@@ -86,6 +90,16 @@ export interface TrashItem {
   type: 'ingredient' | 'recipe'
   id: number
   navn: string
+}
+
+export interface LogEntry {
+  id: number
+  recipe_id: number
+  recipe_titel: string
+  dato: string
+  gram: number
+  naering: Nutrients
+  created_at: string
 }
 
 const qs = (params: Record<string, string | undefined>) => {
@@ -115,6 +129,11 @@ export const foodmateApi = {
     request<RecipeDetail>(`/foodmate/recipes/${recipeId}/ingredients/${ingredientId}`, { method: 'DELETE' }),
   setRecipeSteps: (recipeId: number, steps: string[]) =>
     request<RecipeDetail>(`/foodmate/recipes/${recipeId}/steps`, json('PUT', { steps })),
+
+  log: (dato: string) => request<{ entries: LogEntry[]; total: Nutrients }>(`/foodmate/log${qs({ dato })}`),
+  addLogEntry: (recipeId: number, dato: string, gram: number) =>
+    request<LogEntry>('/foodmate/log', json('POST', { recipe_id: recipeId, dato, gram })),
+  deleteLogEntry: (id: number) => request(`/foodmate/log/${id}`, { method: 'DELETE' }),
 
   trash: () => request<TrashItem[]>('/foodmate/trash'),
   restoreTrash: (type: 'ingredient' | 'recipe', id: number) => request(`/foodmate/trash/${type}/${id}/restore`, json('POST', {})),
