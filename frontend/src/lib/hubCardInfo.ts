@@ -120,6 +120,26 @@ export const HUB_INFO_OPTIONS: Record<string, HubInfoOption[]> = {
     },
   ],
 
+  '500mate': [
+    {
+      id: 'games',
+      label: 'Spil i alt',
+      async fetch() {
+        const games = await request<{ id: number }[]>('/500mate/games')
+        return games.length ? `${games.length} ${games.length === 1 ? 'spil' : 'spil'} registreret` : null
+      },
+    },
+    {
+      id: 'leader',
+      label: 'Topscore',
+      async fetch() {
+        const board = await request<{ navn: string; sejre: number }[]>('/500mate/leaderboard')
+        const leder = [...board].filter(r => r.sejre > 0).sort((a, b) => b.sejre - a.sejre)[0]
+        return leder ? `${leder.navn} fører med ${leder.sejre} ${leder.sejre === 1 ? 'sejr' : 'sejre'}` : null
+      },
+    },
+  ],
+
   contactmate: [
     {
       id: 'contacts',
