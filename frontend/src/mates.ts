@@ -76,6 +76,15 @@ export const MATES: MateInfo[] = [
     status: 'ready',
   },
   {
+    id: 'contactmate',
+    name: 'ContactMate',
+    icon: '📇',
+    description: 'Kontakter med Google-sync, dublet-oprydning, LinkedIn-berigelse og Gmail-baseret "sidst kontaktet".',
+    accent: '190 24 93',
+    accentSoft: '255 241 242',
+    status: 'ready',
+  },
+  {
     id: 'domus',
     name: 'Domus',
     icon: '🏠',

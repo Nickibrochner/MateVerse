@@ -369,6 +369,101 @@ const MIGRATIONS: string[] = [
      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
      UNIQUE(coin_id, platform)
    );`,
+
+  // 13: ContactMate — port af Tauri-udgaven. Google Contacts (OAuth, to-vejs sync) og Gmail
+  // (separat OAuth, "sidst kontaktet"-statistik) er fælles for husstanden, ikke pr. bruger.
+  // 'setting' gemmer OAuth-klient-id/secret og tokens ukrypteret, samme aftale som Stockmates krypto.
+  `CREATE TABLE IF NOT EXISTS contactmate_setting (
+     key TEXT PRIMARY KEY,
+     value TEXT NOT NULL
+   );
+
+   CREATE TABLE IF NOT EXISTS contactmate_contact (
+     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+     google_id TEXT UNIQUE,
+     fornavn TEXT,
+     efternavn TEXT,
+     visningsnavn TEXT NOT NULL,
+     firma TEXT,
+     titel TEXT,
+     foto_url TEXT,
+     noter TEXT,
+     synced_at TEXT,
+     lokalt_redigeret INTEGER NOT NULL DEFAULT 0,
+     ny_fra_google INTEGER NOT NULL DEFAULT 0,
+     foedselsdag TEXT,
+     foedselsdag_uden_aar INTEGER NOT NULL DEFAULT 0,
+     adresse_gade TEXT,
+     adresse_by TEXT,
+     adresse_postnr TEXT,
+     adresse_land TEXT,
+     sidst_kontakt_at TEXT,
+     antal_emails INTEGER NOT NULL DEFAULT 0,
+     sidst_gmail_sync TEXT,
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   CREATE INDEX IF NOT EXISTS idx_contactmate_contact_google ON contactmate_contact(google_id);
+   CREATE INDEX IF NOT EXISTS idx_contactmate_contact_navn   ON contactmate_contact(visningsnavn);
+
+   CREATE TABLE IF NOT EXISTS contactmate_email (
+     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+     contact_id TEXT NOT NULL REFERENCES contactmate_contact(id) ON DELETE CASCADE,
+     email TEXT NOT NULL,
+     type TEXT,
+     primaer INTEGER NOT NULL DEFAULT 0,
+     klassificering TEXT,
+     lokalt_redigeret INTEGER NOT NULL DEFAULT 0,
+     ny_fra_google INTEGER NOT NULL DEFAULT 0
+   );
+   CREATE INDEX IF NOT EXISTS idx_contactmate_email_contact ON contactmate_email(contact_id);
+
+   CREATE TABLE IF NOT EXISTS contactmate_phone (
+     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+     contact_id TEXT NOT NULL REFERENCES contactmate_contact(id) ON DELETE CASCADE,
+     nummer TEXT NOT NULL,
+     type TEXT,
+     primaer INTEGER NOT NULL DEFAULT 0,
+     lokalt_redigeret INTEGER NOT NULL DEFAULT 0,
+     ny_fra_google INTEGER NOT NULL DEFAULT 0
+   );
+   CREATE INDEX IF NOT EXISTS idx_contactmate_phone_contact ON contactmate_phone(contact_id);
+
+   CREATE TABLE IF NOT EXISTS contactmate_group (
+     google_id TEXT PRIMARY KEY,
+     navn TEXT NOT NULL
+   );
+   CREATE TABLE IF NOT EXISTS contactmate_contact_group (
+     contact_id TEXT NOT NULL REFERENCES contactmate_contact(id) ON DELETE CASCADE,
+     group_id   TEXT NOT NULL REFERENCES contactmate_group(google_id) ON DELETE CASCADE,
+     PRIMARY KEY (contact_id, group_id)
+   );
+
+   CREATE TABLE IF NOT EXISTS contactmate_ignored_duplicate (
+     id_a TEXT NOT NULL,
+     id_b TEXT NOT NULL,
+     PRIMARY KEY (id_a, id_b),
+     CHECK (id_a < id_b)
+   );
+
+   CREATE TABLE IF NOT EXISTS contactmate_deleted_google_id (google_id TEXT PRIMARY KEY);
+   CREATE TABLE IF NOT EXISTS contactmate_deleted_email (contact_id TEXT NOT NULL, email  TEXT NOT NULL, PRIMARY KEY (contact_id, email));
+   CREATE TABLE IF NOT EXISTS contactmate_deleted_phone (contact_id TEXT NOT NULL, nummer TEXT NOT NULL, PRIMARY KEY (contact_id, nummer));
+
+   CREATE TABLE IF NOT EXISTS contactmate_linkedin_connection (
+     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+     fornavn TEXT,
+     efternavn TEXT,
+     email TEXT,
+     firma TEXT,
+     titel TEXT,
+     forbundet_den TEXT,
+     contact_id TEXT REFERENCES contactmate_contact(id) ON DELETE SET NULL,
+     fuzzy_kandidat_id TEXT,
+     match_score INTEGER NOT NULL DEFAULT 0,
+     imported_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   CREATE INDEX IF NOT EXISTS idx_contactmate_linkedin_contact ON contactmate_linkedin_connection(contact_id);
+   CREATE TABLE IF NOT EXISTS contactmate_linkedin_hidden (linkedin_id TEXT PRIMARY KEY);`,
 ]
 
 export function migrate(database: Database = db) {
