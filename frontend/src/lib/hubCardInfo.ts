@@ -120,6 +120,25 @@ export const HUB_INFO_OPTIONS: Record<string, HubInfoOption[]> = {
     },
   ],
 
+  contactmate: [
+    {
+      id: 'contacts',
+      label: 'Kontakter i alt',
+      async fetch() {
+        const contacts = await request<{ id: string }[]>('/contactmate/contacts')
+        return contacts.length ? `${contacts.length} ${contacts.length === 1 ? 'kontakt' : 'kontakter'}` : null
+      },
+    },
+    {
+      id: 'duplicates',
+      label: 'Mulige dubletter',
+      async fetch() {
+        const { pairs } = await request<{ pairs: unknown[] }>('/contactmate/duplicates')
+        return pairs.length ? `${pairs.length} ${pairs.length === 1 ? 'mulig dublet' : 'mulige dubletter'}` : null
+      },
+    },
+  ],
+
   kinmate: [
     {
       id: 'persons',
