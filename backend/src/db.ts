@@ -464,6 +464,52 @@ const MIGRATIONS: string[] = [
    );
    CREATE INDEX IF NOT EXISTS idx_contactmate_linkedin_contact ON contactmate_linkedin_connection(contact_id);
    CREATE TABLE IF NOT EXISTS contactmate_linkedin_hidden (linkedin_id TEXT PRIMARY KEY);`,
+
+  // 14: 500Mate — port af Tauri-udgaven. Scoretæller til kortspillet "500", fælles spillerkartotek
+  // for husstanden på tværs af spil. Tabel-præfiks 'mate500_' (ikke '500mate_') fordi SQLite ikke
+  // tillader bare identifier-navne, der starter med et tal.
+  `CREATE TABLE IF NOT EXISTS mate500_player (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     navn TEXT NOT NULL UNIQUE,
+     farve TEXT NOT NULL,
+     aktiv INTEGER NOT NULL DEFAULT 1,
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   CREATE TABLE IF NOT EXISTS mate500_game (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     navn TEXT,
+     dato TEXT NOT NULL,
+     afsluttet INTEGER NOT NULL DEFAULT 0,
+     vinder_id INTEGER REFERENCES mate500_player(id),
+     notat TEXT,
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   CREATE TABLE IF NOT EXISTS mate500_game_player (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     game_id INTEGER NOT NULL REFERENCES mate500_game(id) ON DELETE CASCADE,
+     player_id INTEGER NOT NULL REFERENCES mate500_player(id),
+     position INTEGER NOT NULL,
+     UNIQUE(game_id, player_id)
+   );
+   CREATE TABLE IF NOT EXISTS mate500_round (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     game_id INTEGER NOT NULL REFERENCES mate500_game(id) ON DELETE CASCADE,
+     runde_nr INTEGER NOT NULL,
+     melding_spiller_id INTEGER REFERENCES mate500_player(id),
+     melding_antal INTEGER,
+     melding_farve TEXT,
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   CREATE TABLE IF NOT EXISTS mate500_round_point (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     round_id INTEGER NOT NULL REFERENCES mate500_round(id) ON DELETE CASCADE,
+     player_id INTEGER NOT NULL REFERENCES mate500_player(id),
+     point INTEGER NOT NULL,
+     stik_vundet INTEGER NOT NULL,
+     UNIQUE(round_id, player_id)
+   );
+   CREATE INDEX IF NOT EXISTS idx_mate500_round_game ON mate500_round(game_id);
+   CREATE INDEX IF NOT EXISTS idx_mate500_point_round ON mate500_round_point(round_id);`,
 ]
 
 export function migrate(database: Database = db) {

@@ -76,6 +76,15 @@ export const MATES: MateInfo[] = [
     status: 'ready',
   },
   {
+    id: '500mate',
+    name: '500Mate',
+    icon: '🃏',
+    description: 'Scoretæller til kortspillet 500: spil, runder med meldinger, totaler og leaderboard på tværs af husstanden.',
+    accent: '136 19 55',
+    accentSoft: '253 242 248',
+    status: 'ready',
+  },
+  {
     id: 'contactmate',
     name: 'ContactMate',
     icon: '📇',
