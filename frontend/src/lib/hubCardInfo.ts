@@ -2,7 +2,7 @@ import { request } from '../api'
 import { stockmateApi } from '../mates/stockmate/api'
 import { econApi } from '../mates/econmate/api'
 import { kanApi, daysLeft } from '../mates/kanmate/api'
-import { money, signed } from './format'
+import { money, signed, today } from './format'
 
 /**
  * Valgbare "ekstra info"-linjer til hub-kortene (se Settings.vue og Hub.vue). Hver mate har et
@@ -155,6 +155,14 @@ export const HUB_INFO_OPTIONS: Record<string, HubInfoOption[]> = {
       async fetch() {
         const ingredients = await request<{ id: number }[]>('/foodmate/ingredients')
         return ingredients.length ? `${ingredients.length} ${ingredients.length === 1 ? 'ingrediens' : 'ingredienser'}` : null
+      },
+    },
+    {
+      id: 'kcal_today',
+      label: 'Spist i dag (kcal)',
+      async fetch() {
+        const { total } = await request<{ total: { energi_kcal: number | null } }>(`/foodmate/log?dato=${today()}`)
+        return total.energi_kcal != null ? `${Math.round(total.energi_kcal)} kcal i dag` : null
       },
     },
   ],

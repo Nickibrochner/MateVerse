@@ -2,9 +2,10 @@ import { Elysia, t } from 'elysia'
 import { HttpError, httpErrors } from '../../lib/http'
 import { soegOpenFoodFacts } from './openfoodfacts'
 import {
-  createIngredient, createRecipe, deleteRecipeIngredient, emptyTrash, getIngredient, getRecipeDetail,
-  listAllTags, listIngredients, listRecipes, listTrash, permanentlyDeleteTrashItem, replaceRecipeSteps,
-  restoreTrashItem, softDeleteIngredient, softDeleteRecipe, updateIngredient, updateRecipe, upsertRecipeIngredient,
+  addLogEntry, createIngredient, createRecipe, deleteLogEntry, deleteRecipeIngredient, emptyTrash, getIngredient,
+  getRecipeDetail, listAllTags, listIngredients, listLogForDate, listRecipes, listTrash, permanentlyDeleteTrashItem,
+  replaceRecipeSteps, restoreTrashItem, softDeleteIngredient, softDeleteRecipe, updateIngredient, updateRecipe,
+  upsertRecipeIngredient,
 } from './queries'
 
 /**
@@ -117,6 +118,20 @@ export const foodmate = new Elysia({ prefix: '/foodmate' })
       throw new HttpError(400, (e as Error).message)
     }
   }, { body: t.Object({ steps: t.Array(t.String()) }) })
+
+  // ── Dagbog ───────────────────────────────────────────────────────────────────
+  .get('/log', ({ query }) => listLogForDate(query.dato), { query: t.Object({ dato: t.String() }) })
+  .post('/log', ({ body }) => {
+    try {
+      return addLogEntry(body.recipe_id, body.dato, body.gram)
+    } catch (e) {
+      throw new HttpError(400, (e as Error).message)
+    }
+  }, { body: t.Object({ recipe_id: t.Integer(), dato: t.String(), gram: t.Number({ exclusiveMinimum: 0 }) }) })
+  .delete('/log/:id', ({ params }) => {
+    deleteLogEntry(Number(params.id))
+    return { ok: true }
+  })
 
   // ── Papirkurv ────────────────────────────────────────────────────────────────
   .get('/trash', () => listTrash())

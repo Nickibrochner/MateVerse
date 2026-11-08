@@ -43,7 +43,7 @@ export const MATES: MateInfo[] = [
     id: 'foodmate',
     name: 'Foodmate',
     icon: '🍽️',
-    description: 'Opskrifter med ingredienser, trin og næringsberegning pr. portion.',
+    description: 'Byg opskrifter og log hvor meget du spiser af dem, for at følge dit kcal-indtag.',
     accent: '194 65 12',
     accentSoft: '255 247 237',
     status: 'ready',

@@ -9,29 +9,41 @@
         </div>
         <p v-if="detail.beskrivelse" class="text-sm whitespace-pre-wrap">{{ detail.beskrivelse }}</p>
 
-        <div class="flex items-center gap-2">
-          <label class="label !mb-0">Portioner</label>
-          <button type="button" class="btn-icon" @click="justerPortioner(-1)">−</button>
-          <span class="w-8 text-center tabular-nums">{{ oenskedePortioner }}</span>
-          <button type="button" class="btn-icon" @click="justerPortioner(1)">+</button>
-          <button v-if="oenskedePortioner !== detail.portioner" type="button" class="text-xs text-accent ml-1" @click="oenskedePortioner = detail.portioner">
-            nulstil til {{ detail.portioner }}
-          </button>
-        </div>
-
         <div class="panel !p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
           <div v-for="(label, key) in NUTRIENT_LABELS" :key="key">
             <div class="text-xs text-stone-400">{{ label }}</div>
-            <div class="font-semibold">{{ skaleretPrPortion[key] ?? '–' }}</div>
+            <div class="font-semibold">{{ detail.naering_pr_100g[key] ?? '–' }}</div>
           </div>
+        </div>
+        <p class="text-xs text-stone-400 -mt-2">
+          pr. 100 g · {{ formatGram(detail.total_gram) }} g i alt ({{ detail.portioner }} {{ detail.portioner === 1 ? 'portion' : 'portioner' }})
+        </p>
+
+        <div class="panel !p-3 space-y-2 border-accent/30">
+          <h3 class="font-semibold text-sm">Log forbrug</h3>
+          <div class="flex flex-wrap items-end gap-2">
+            <div>
+              <label class="label !mb-0.5">Gram spist</label>
+              <input v-model.number="spistGram" type="number" min="1" class="field !w-24" placeholder="g">
+            </div>
+            <div>
+              <label class="label !mb-0.5">Dato</label>
+              <input v-model="spistDato" type="date" class="field !w-40">
+            </div>
+            <button type="button" class="btn-primary" :disabled="!spistGram || loggerForbrug" @click="loggForbrug">
+              {{ loggerForbrug ? 'Gemmer …' : 'Tilføj til dagbog' }}
+            </button>
+          </div>
+          <p v-if="spistGram && spistKcal != null" class="text-xs text-stone-500">≈ {{ Math.round(spistKcal) }} kcal</p>
+          <p v-if="logBesked" class="text-xs" :class="logFejl ? 'text-loss' : 'text-gain'">{{ logBesked }}</p>
         </div>
 
         <div>
-          <h3 class="font-semibold mb-1">Ingredienser <span class="text-xs text-stone-400 font-normal">({{ skaleringsfaktor === 1 ? 'original mængde' : `skaleret til ${oenskedePortioner} portioner` }})</span></h3>
+          <h3 class="font-semibold mb-1">Ingredienser</h3>
           <ul class="text-sm space-y-1">
             <li v-for="l in detail.ingredienser" :key="l.ingredient_id" class="flex justify-between">
               <span>{{ l.navn }}</span>
-              <span class="text-stone-500">{{ formatGram(l.maengde * skaleringsfaktor) }} g <span v-if="l.naering.energi_kcal != null" class="text-stone-400">· {{ Math.round(l.naering.energi_kcal * l.maengde * skaleringsfaktor / 100) }} kcal</span></span>
+              <span class="text-stone-500">{{ formatGram(l.maengde) }} g <span v-if="l.naering.energi_kcal != null" class="text-stone-400">· {{ Math.round(l.naering.energi_kcal * l.maengde / 100) }} kcal</span></span>
             </li>
           </ul>
         </div>
@@ -83,7 +95,7 @@
 
         <div>
           <h3 class="font-semibold mb-1">Fremgangsmåde</h3>
-          <div v-for="(trin, i) in trinKladde" :key="i" class="flex gap-2 mb-1.5">
+          <div v-for="(_, i) in trinKladde" :key="i" class="flex gap-2 mb-1.5">
             <span class="text-xs text-stone-400 pt-2 w-4">{{ i + 1 }}.</span>
             <textarea v-model="trinKladde[i]" class="field flex-1" rows="1" @blur="gemTrin"></textarea>
             <button type="button" class="btn-icon shrink-0" @click="fjernTrin(i)">✕</button>
@@ -104,6 +116,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import Modal from '../../../components/Modal.vue'
+import { today } from '../../../lib/format'
 import { foodmateApi, NUTRIENT_LABELS, type Ingredient, type RecipeDetail } from '../api'
 
 const props = defineProps<{ recipeId: number }>()
@@ -114,7 +127,6 @@ const loading = ref(true)
 const editing = ref(false)
 const saving = ref(false)
 const error = ref('')
-const oenskedePortioner = ref(1)
 
 const form = reactive({ titel: '', beskrivelse: '', tilberedningstid: null as number | null, portioner: 1, tags: '' })
 const trinKladde = ref<string[]>([])
@@ -122,16 +134,16 @@ const allIngredients = ref<Ingredient[]>([])
 const nyIngrediensId = ref<number | null>(null)
 const nyMaengde = ref<number | null>(null)
 
+const spistGram = ref<number | null>(null)
+const spistDato = ref(today())
+const loggerForbrug = ref(false)
+const logBesked = ref('')
+const logFejl = ref(false)
+
 const tagListe = computed(() => (detail.value?.tags ?? '').split(',').map(t => t.trim()).filter(Boolean))
-const skaleringsfaktor = computed(() => (detail.value && detail.value.portioner > 0 ? oenskedePortioner.value / detail.value.portioner : 1))
-const skaleretPrPortion = computed(() => {
-  const ud: Record<string, string> = {}
-  if (!detail.value) return ud
-  for (const key of Object.keys(NUTRIENT_LABELS) as (keyof typeof NUTRIENT_LABELS)[]) {
-    const total = detail.value.naering_total[key]
-    ud[key] = total == null ? '–' : `${Math.round((total * skaleringsfaktor.value) / oenskedePortioner.value)}`
-  }
-  return ud
+const spistKcal = computed(() => {
+  const pr100 = detail.value?.naering_pr_100g.energi_kcal
+  return pr100 == null || !spistGram.value ? null : (pr100 * spistGram.value) / 100
 })
 const valgbareIngredienser = computed(() =>
   allIngredients.value.filter(i => !detail.value?.ingredienser.some(l => l.ingredient_id === i.id)),
@@ -141,15 +153,27 @@ function formatGram(g: number) {
   return g.toLocaleString('da-DK', { maximumFractionDigits: 0 })
 }
 
-function justerPortioner(delta: number) {
-  oenskedePortioner.value = Math.max(1, oenskedePortioner.value + delta)
+async function loggForbrug() {
+  if (!spistGram.value) return
+  loggerForbrug.value = true
+  logBesked.value = ''
+  try {
+    await foodmateApi.addLogEntry(props.recipeId, spistDato.value, spistGram.value)
+    logFejl.value = false
+    logBesked.value = `Tilføjet til dagbogen (${spistDato.value}).`
+    spistGram.value = null
+  } catch (e) {
+    logFejl.value = true
+    logBesked.value = (e as Error).message
+  } finally {
+    loggerForbrug.value = false
+  }
 }
 
 async function load() {
   loading.value = true
   try {
     detail.value = await foodmateApi.recipe(props.recipeId)
-    oenskedePortioner.value = detail.value.portioner
   } finally {
     loading.value = false
   }

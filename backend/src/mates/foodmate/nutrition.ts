@@ -42,3 +42,19 @@ export function prPortion(total: Nutrients, portioner: number): Nutrients {
   }
   return ud
 }
+
+/** Omregner en opskrifts samlede næring til "pr. 100 g af hele retten" ud fra den samlede gram-mængde. */
+export function pr100g(total: Nutrients, totalGram: number): Nutrients {
+  const ud = {} as Nutrients
+  for (const felt of NUTRIENT_FELTER) {
+    ud[felt] = total[felt] == null || totalGram <= 0 ? total[felt] : round2((total[felt]! / totalGram) * 100)
+  }
+  return ud
+}
+
+/** Næring for en given mængde (gram) af en ret, ud fra dens næring pr. 100 g. Bruges til dagbogslogning. */
+export function forGram(pr100gVaerdi: Nutrients, gram: number): Nutrients {
+  const ud = {} as Nutrients
+  for (const felt of NUTRIENT_FELTER) ud[felt] = skaler(pr100gVaerdi[felt], gram)
+  return ud
+}

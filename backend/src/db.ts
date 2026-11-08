@@ -554,6 +554,19 @@ const MIGRATIONS: string[] = [
    );
    CREATE INDEX IF NOT EXISTS idx_foodmate_recipe_ingredient ON foodmate_recipe_ingredient(recipe_id);
    CREATE INDEX IF NOT EXISTS idx_foodmate_recipe_step ON foodmate_recipe_step(recipe_id);`,
+
+  // 16: FoodMate-dagbog. Primær brug af FoodMate er at bygge en opskrift og bagefter logge hvor
+  // mange gram man har spist af den, for at se det samlede kcal/næringsindtag — ikke at regne i
+  // faste portioner. Næring beregnes pr. gram ud fra opskriftens næring pr. 100 g ved opslag,
+  // så den altid matcher opskriftens nuværende ingrediensliste.
+  `CREATE TABLE IF NOT EXISTS foodmate_log (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     recipe_id INTEGER NOT NULL REFERENCES foodmate_recipe(id) ON DELETE CASCADE,
+     dato TEXT NOT NULL,
+     gram REAL NOT NULL,
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   CREATE INDEX IF NOT EXISTS idx_foodmate_log_dato ON foodmate_log(dato);`,
 ]
 
 export function migrate(database: Database = db) {
