@@ -140,6 +140,25 @@ export const HUB_INFO_OPTIONS: Record<string, HubInfoOption[]> = {
     },
   ],
 
+  foodmate: [
+    {
+      id: 'recipes',
+      label: 'Opskrifter i alt',
+      async fetch() {
+        const recipes = await request<{ id: number }[]>('/foodmate/recipes')
+        return recipes.length ? `${recipes.length} ${recipes.length === 1 ? 'opskrift' : 'opskrifter'}` : null
+      },
+    },
+    {
+      id: 'ingredients',
+      label: 'Ingredienser i kartoteket',
+      async fetch() {
+        const ingredients = await request<{ id: number }[]>('/foodmate/ingredients')
+        return ingredients.length ? `${ingredients.length} ${ingredients.length === 1 ? 'ingrediens' : 'ingredienser'}` : null
+      },
+    },
+  ],
+
   contactmate: [
     {
       id: 'contacts',

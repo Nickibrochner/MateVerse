@@ -8,6 +8,7 @@ import { kinmate } from './mates/kinmate/routes'
 import { diskmate } from './mates/diskmate/routes'
 import { contactmate } from './mates/contactmate/routes'
 import { mate500 } from './mates/500mate/routes'
+import { foodmate } from './mates/foodmate/routes'
 
 const PORT = Number(process.env.PORT ?? 3000)
 
@@ -62,6 +63,7 @@ const app = new Elysia()
   .use(diskmate)
   .use(contactmate)
   .use(mate500)
+  .use(foodmate)
   .listen(PORT)
 
 console.log(`MateVerse API kører på http://localhost:${app.server?.port}`)
