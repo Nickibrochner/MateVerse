@@ -1,4 +1,5 @@
 import { db } from '../../db'
+import { lokalTid, type BatteriMåling, type Dag, type Hjem } from './analyse'
 import type { Point } from './geo'
 
 /**
@@ -10,6 +11,8 @@ import type { Point } from './geo'
  */
 
 const API = 'https://graph.tractive.com/4'
+/** Tractives "wellness"-tjeneste med dagens aktivitets- og søvntal. */
+const APS = 'https://aps-api.tractive.com/api/1'
 /** Klient-id'et, som Home Assistant-integrationen bruger. Tractive kræver et i hver forespørgsel. */
 const CLIENT_ID = '625e533dc3c3b41c28a669f0'
 const TIMEOUT = 10_000
@@ -53,8 +56,18 @@ function gemtSession(): Session | null {
 
 export const erForbundet = () => !!getSetting('email') && !!getSetting('password')
 
+/** Hjemmepunktet er kattens, ikke Tractive-kontoens – det overlever, at forbindelsen afbrydes. */
+export function getHjem(): Hjem | null {
+  try {
+    const h = JSON.parse(getSetting('hjem') ?? 'null')
+    return h && typeof h.lat === 'number' && typeof h.lng === 'number' && typeof h.radius === 'number' ? h : null
+  } catch {
+    return null
+  }
+}
+
 export function afbryd() {
-  db.exec('DELETE FROM catmate_setting')
+  db.exec("DELETE FROM catmate_setting WHERE key != 'hjem'")
   cache.clear()
 }
 
@@ -66,7 +79,7 @@ export const net = { fetch: (url: string, init?: RequestInit) => fetch(url, init
 async function kald(path: string, init: RequestInit = {}): Promise<any> {
   let res: Response
   try {
-    res = await net.fetch(`${API}${path}`, {
+    res = await net.fetch(path.startsWith('https://') ? path : `${API}${path}`, {
       ...init,
       headers: { 'X-Tractive-Client': CLIENT_ID, Accept: 'application/json', ...init.headers },
       signal: AbortSignal.timeout(TIMEOUT),
@@ -139,6 +152,8 @@ const valgfri = (path: string) => hent(path).catch(() => null)
 
 export interface Pet {
   tracker_id: string
+  /** Tractives id for selve dyret (aktivitetstallene hører til dyret, ikke trackeren). */
+  pet_id: string | null
   navn: string
   /** 'CAT', 'DOG' … som Tractive kalder det, eller null. */
   art: string | null
@@ -179,6 +194,8 @@ const gemPunkter = db.transaction((trackerId: string, points: Point[]) => {
   for (const p of points) gemPunkt.run(trackerId, p.time, p.lat, p.lng, p.speed, p.altitude, p.uncertainty, p.sensor)
 })
 
+const gemBatteri = db.query('INSERT OR IGNORE INTO catmate_battery (tracker_id, time, level, charging) VALUES (?, ?, ?, ?)')
+
 /** Korte caches, så hub-kortet og kortsiden ikke hver især spørger Tractive. */
 const cache = new Map<string, { at: number; value: unknown }>()
 async function cached<T>(key: string, ttl: number, load: () => Promise<T>): Promise<T> {
@@ -206,13 +223,18 @@ export const hentPets = (): Promise<Pet[]> => cached('pets', 30_000, async () =>
     const ejer = detaljer.find(d => d?.device_id === id)
     const position = tilPoint(pos)
     if (position) gemPunkter(id, [position])
+    const batteri = tal(hw?.battery_level)
+    const lader = typeof tracker?.charging_state === 'string' ? tracker.charging_state === 'CHARGING' : null
+    // Målingen stemples med trackerens egen tid, så samme rapport ikke gemmes to gange.
+    if (batteri != null) gemBatteri.run(id, tal(hw?.time) ?? Math.floor(Date.now() / 1000), Math.round(batteri), lader ? 1 : 0)
     return {
       tracker_id: id,
+      pet_id: tekst(ejer?._id),
       navn: tekst(ejer?.details?.name) ?? `Tracker ${id}`,
       art: tekst(ejer?.details?.pet_type),
       model: tekst(tracker?.model_number),
-      batteri: tal(hw?.battery_level),
-      lader: typeof tracker?.charging_state === 'string' ? tracker.charging_state === 'CHARGING' : null,
+      batteri,
+      lader,
       tilstand: tekst(tracker?.state),
       status_time: tal(hw?.time),
       position,
@@ -254,4 +276,88 @@ export async function hentRute(trackerId: string, timer: number): Promise<Rute> 
     )
     .all(trackerId, fra) as Point[]
   return { points, kilde: fejl ? 'cache' : 'live', fejl }
+}
+
+export function batteriMålinger(trackerId: string, fra: number): BatteriMåling[] {
+  const rows = db
+    .query('SELECT time, level, charging FROM catmate_battery WHERE tracker_id = ? AND time >= ? ORDER BY time')
+    .all(trackerId, fra) as { time: number; level: number; charging: number }[]
+  return rows.map(r => ({ ...r, charging: !!r.charging }))
+}
+
+// ── Aktivitet og søvn ──────────────────────────────────────────────────────────
+
+/**
+ * Tractives sundhedsoversigt ({ activity: { minutesActive, minutesGoal, minutesRest, calories },
+ * sleep: { minutesDaySleep, minutesNightSleep } }) → dagens række. Feltnavnene er dem, Home
+ * Assistant-integrationen læser; mangler de alle, er svaret ikke en oversigt, og der returneres null.
+ */
+export function tilDag(raw: any, dato: string): Dag | null {
+  const a = raw?.activity ?? {}
+  const s = raw?.sleep ?? {}
+  const dag: Dag = {
+    dato,
+    aktiv_min: tal(a.minutesActive),
+    hvile_min: tal(a.minutesRest),
+    maal_min: tal(a.minutesGoal),
+    dagsoevn_min: tal(s.minutesDaySleep),
+    natsoevn_min: tal(s.minutesNightSleep),
+    kalorier: tal(a.calories),
+  }
+  const { dato: _dato, ...talfelter } = dag
+  return Object.values(talfelter).some(v => v != null) ? dag : null
+}
+
+const gemDag = db.query(
+  `INSERT INTO catmate_day (tracker_id, dato, aktiv_min, hvile_min, maal_min, dagsoevn_min, natsoevn_min, kalorier, updated_at)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+   ON CONFLICT(tracker_id, dato) DO UPDATE SET
+     aktiv_min = excluded.aktiv_min, hvile_min = excluded.hvile_min, maal_min = excluded.maal_min,
+     dagsoevn_min = excluded.dagsoevn_min, natsoevn_min = excluded.natsoevn_min, kalorier = excluded.kalorier,
+     updated_at = excluded.updated_at`,
+)
+
+/**
+ * Henter dagens aktivitets- og søvntal og gemmer dem som dagens række. Tallene vokser i løbet af
+ * dagen, så rækken overskrives ved hvert kald, og den sidste hentning før midnat bliver dagens resultat.
+ * Returnerer en fejlbesked, hvis Tractive ikke leverer tallene (fx uden abonnement, der dækker dem).
+ */
+export async function synkSundhed(pet: Pet): Promise<string | null> {
+  if (!pet.pet_id) return 'Trackeren er ikke knyttet til et kæledyr hos Tractive'
+  try {
+    return await cached(`sundhed:${pet.pet_id}`, 5 * 60_000, async () => {
+      const nu = Math.floor(Date.now() / 1000)
+      const dag = tilDag(await hent(`${APS}/pet/${pet.pet_id}/health/overview`), lokalTid(nu).dato)
+      if (!dag) return 'Tractive svarede uden aktivitetstal'
+      gemDag.run(pet.tracker_id, dag.dato, dag.aktiv_min, dag.hvile_min, dag.maal_min, dag.dagsoevn_min, dag.natsoevn_min, dag.kalorier, nu)
+      return null
+    })
+  } catch (e) {
+    return (e as Error).message
+  }
+}
+
+export function dage(trackerId: string, fraDato: string): Dag[] {
+  return db
+    .query(
+      `SELECT dato, aktiv_min, hvile_min, maal_min, dagsoevn_min, natsoevn_min, kalorier FROM catmate_day
+       WHERE tracker_id = ? AND dato >= ? ORDER BY dato`,
+    )
+    .all(trackerId, fraDato) as Dag[]
+}
+
+// ── Baggrundshentning ──────────────────────────────────────────────────────────
+
+/**
+ * Henter position, batteri, rute og aktivitetstal for alle trackere. Kaldes af poller.ts hvert
+ * femte minut, så historikken også bygges op, når ingen har siden åben. Fejl sluges: næste runde prøver igen.
+ */
+export async function synkAlt(): Promise<void> {
+  if (!erForbundet()) return
+  cache.delete('pets')
+  const pets = await hentPets()
+  for (const pet of pets) {
+    await hentRute(pet.tracker_id, 24)
+    await synkSundhed(pet)
+  }
 }

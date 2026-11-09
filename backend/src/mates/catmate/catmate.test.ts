@@ -33,7 +33,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   tractive.afbryd()
-  db.exec('DELETE FROM catmate_position')
+  db.exec('DELETE FROM catmate_position; DELETE FROM catmate_battery; DELETE FROM catmate_day; DELETE FROM catmate_setting')
   kald = []
   logins = 0
   svar = {
@@ -123,7 +123,7 @@ describe('Tractive-klient', () => {
     forbind()
     const pets = await tractive.hentPets()
     expect(pets).toEqual([{
-      tracker_id: 'TRK1', navn: 'Mis', art: 'CAT', model: 'TG4410', batteri: 73, lader: false,
+      tracker_id: 'TRK1', pet_id: 'pet1', navn: 'Mis', art: 'CAT', model: 'TG4410', batteri: 73, lader: false,
       tilstand: 'OPERATIONAL', status_time: NU - 60,
       position: { time: NU - 120, lat: 55.6761, lng: 12.5683, speed: 0.4, altitude: 12, uncertainty: 8, sensor: 'GPS' },
     }])
@@ -195,6 +195,48 @@ describe('Tractive-klient', () => {
     expect(rute.kilde).toBe('cache')
     expect(rute.fejl).toBe('Tractive svarede 500')
     expect(rute.points).toHaveLength(2)
+  })
+
+  test('batteriet gemmes én gang pr. rapport fra trackeren', async () => {
+    forbind()
+    await tractive.hentPets()
+    tractive.tømCache()
+    await tractive.hentPets()
+    expect(tractive.batteriMålinger('TRK1', 0)).toEqual([{ time: NU - 60, level: 73, charging: false }])
+  })
+
+  test('synkSundhed: dagens aktivitetstal gemmes og overskrives i løbet af dagen', async () => {
+    forbind()
+    const [pet] = await tractive.hentPets()
+    const overblik = { activity: { minutesActive: 40, minutesGoal: 60, minutesRest: 300, calories: 120 }, sleep: { minutesDaySleep: 200, minutesNightSleep: 380 } }
+    svar['https://aps-api.tractive.com/api/1/pet/pet1/health/overview'] = () => overblik
+    expect(await tractive.synkSundhed(pet)).toBeNull()
+
+    overblik.activity.minutesActive = 75
+    tractive.tømCache()
+    await tractive.synkSundhed(pet)
+    const rækker = tractive.dage('TRK1', '2000-01-01')
+    expect(rækker).toHaveLength(1)
+    expect(rækker[0]).toMatchObject({ aktiv_min: 75, maal_min: 60, hvile_min: 300, dagsoevn_min: 200, natsoevn_min: 380, kalorier: 120 })
+  })
+
+  test('synkSundhed: leverer Tractive ikke tallene, gives en besked i stedet for en fejl', async () => {
+    forbind()
+    const [pet] = await tractive.hentPets()
+    expect(await tractive.synkSundhed(pet)).toBe('Tractive svarede 404')
+    tractive.tømCache()
+    svar['https://aps-api.tractive.com/api/1/pet/pet1/health/overview'] = () => ({ noget: 'andet' })
+    expect(await tractive.synkSundhed(pet)).toBe('Tractive svarede uden aktivitetstal')
+    expect(tractive.dage('TRK1', '2000-01-01')).toEqual([])
+  })
+
+  test('hjemmepunktet overlever, at forbindelsen afbrydes', () => {
+    forbind()
+    tractive.saveSetting('hjem', JSON.stringify({ lat: 55.6, lng: 12.5, radius: 50 }))
+    tractive.afbryd()
+    expect(tractive.getHjem()).toEqual({ lat: 55.6, lng: 12.5, radius: 50 })
+    tractive.saveSetting('hjem', 'ikke json')
+    expect(tractive.getHjem()).toBeNull()
   })
 
   test('afbryd fjerner login og token', async () => {

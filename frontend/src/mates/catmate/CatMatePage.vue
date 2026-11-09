@@ -19,6 +19,7 @@ import { useRoute } from 'vue-router'
 
 const LINKS = [
   { to: '/catmate', label: '🗺️ Kort', view: () => import('./views/KortView.vue') },
+  { to: '/catmate/indsigt', label: '📊 Indsigt', view: () => import('./views/IndsigtView.vue') },
   { to: '/catmate/indstillinger', label: '⚙️ Indstillinger', view: () => import('./views/IndstillingerView.vue') },
 ]
 const VIEWS = new Map(LINKS.map(l => [l.to, defineAsyncComponent(l.view)]))

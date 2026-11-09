@@ -2,7 +2,7 @@ import { request } from '../api'
 import { stockmateApi } from '../mates/stockmate/api'
 import { econApi } from '../mates/econmate/api'
 import { kanApi, daysLeft } from '../mates/kanmate/api'
-import { catApi, sidenTekst } from '../mates/catmate/api'
+import { afstand, catApi, sidenTekst } from '../mates/catmate/api'
 import { money, signed, today } from './format'
 
 /**
@@ -176,6 +176,16 @@ export const HUB_INFO_OPTIONS: Record<string, HubInfoOption[]> = {
         const pets = await catApi.pets()
         const p = pets.find(x => x.position)
         return p?.position ? `${p.navn} set ${sidenTekst(p.position.time)}` : null
+      },
+    },
+    {
+      id: 'distance',
+      label: 'Dagens distance',
+      async fetch() {
+        const pet = (await catApi.pets())[0]
+        if (!pet) return null
+        const { i_dag } = await catApi.indsigt(pet.tracker_id)
+        return `${pet.navn} har gået ${afstand(i_dag.afstand_m)} i dag`
       },
     },
     {

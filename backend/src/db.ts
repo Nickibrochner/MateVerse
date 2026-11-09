@@ -586,6 +586,29 @@ const MIGRATIONS: string[] = [
      sensor TEXT,
      PRIMARY KEY (tracker_id, time)
    ) WITHOUT ROWID;`,
+
+  // 18: CatMate-indsigter. Batterimålinger gemmes over tid, så forbruget kan fremskrives til en
+  // prognose. 'day' er et dagligt øjebliksbillede af Tractives aktivitets- og søvntal: Tractive
+  // giver kun dagens tal, så historikken (og dermed streaken) bygges op, efterhånden som de hentes.
+  `CREATE TABLE IF NOT EXISTS catmate_battery (
+     tracker_id TEXT NOT NULL,
+     time INTEGER NOT NULL,
+     level INTEGER NOT NULL,
+     charging INTEGER NOT NULL DEFAULT 0,
+     PRIMARY KEY (tracker_id, time)
+   ) WITHOUT ROWID;
+   CREATE TABLE IF NOT EXISTS catmate_day (
+     tracker_id TEXT NOT NULL,
+     dato TEXT NOT NULL,
+     aktiv_min INTEGER,
+     hvile_min INTEGER,
+     maal_min INTEGER,
+     dagsoevn_min INTEGER,
+     natsoevn_min INTEGER,
+     kalorier INTEGER,
+     updated_at INTEGER NOT NULL,
+     PRIMARY KEY (tracker_id, dato)
+   ) WITHOUT ROWID;`,
 ]
 
 export function migrate(database: Database = db) {

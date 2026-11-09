@@ -13,7 +13,7 @@ Stakken er den samme som i DND Vault: Vue 3 og Bun/Elysia med SQLite, og det hel
 | 🌳 **Kinmate** | Slægtsforskning: stamtræ, anecirkel, kort, tidslinje, kilder, forskningslog, datakvalitet og GEDCOM | Tauri-udgaven |
 | 📋 **KanMate** | Kanban med projekter, deadlines, prioritet, underopgaver, arkiv og papirkurv | Tauri-udgaven |
 | 🥏 **DiskMate** | Disc golf: UDisc-import, statistik pr. bane, layout og fysisk hul, spillere, badges, grupperunder og diskkartotek | Tauri-udgaven |
-| 🐈 **CatMate** | Kattens Tractive GPS: seneste position, rute på kort, batteri og tilbagelagt afstand | Ny |
+| 🐈 **CatMate** | Kattens Tractive GPS: position og rute på kort, dagens distance, aktivitet og søvn, territorium, favoritsteder, hjemme/ude-tid og batteri-prognose | Ny |
 
 ### Hubben (`/`)
 
@@ -59,6 +59,14 @@ Stakken er den samme som i DND Vault: Vue 3 og Bun/Elysia med SQLite, og det hel
 - Nøgletal: sidst set, batteri, tilbagelagt afstand (renset for GPS-støj, så en sovende kat ikke "går" flere kilometer) og længste afstand fra rutens start.
 - Log ind med din Tractive-konto under CatMate → Indstillinger. Login prøves af, før det gemmes.
 - Positionerne gemmes lokalt (`catmate_position`), efterhånden som de hentes. Svarer Tractive ikke, vises de gemte.
+- **Indsigt** (`/catmate/indsigt`):
+  - I dag: distance siden midnat, aktive minutter og hvile, spurter (målinger over ca. 11 km/t) og hjemme/ude-tid.
+  - Aktivitet og søvn: dagens aktivitetsmål, dage i træk med målet nået, nattesøvn (kl. 22–06) mod dagsøvn. Tallene er Tractives egne.
+  - Seneste 7 døgn: territoriets areal (mindste konvekse område om alle positioner), favoritsteder uden for hjemmet, hjemme-procent og natteravn-faktor (andelen af bevægelsen, der ligger om natten).
+  - Batteri-prognose: hvornår batteriet ventes tomt, fremskrevet fra forbruget siden seneste opladning.
+- Hjemmepunkt og radius sættes under Indstillinger. Uden det vises hjemme/ude-tid ikke, og hjemmet står blandt favoritstederne.
+- Backenden henter selv fra Tractive hvert 5. minut, så historikken bygges op, også når ingen har siden åben.
+- Tider følger `Europe/Copenhagen`. Sæt miljøvariablen `CATMATE_TZ` for en anden tidszone.
 - CatMate læser kun. Live-tracking, lys og lyd styres stadig fra Tractive-appen.
 
 ## Kom i gang
@@ -126,7 +134,8 @@ backend/
   src/mates/stockmate/          portfolio.ts (regnemotor), market.ts (Yahoo Finance)
   src/mates/econmate/calc.ts    Månedlige beløb, saldi og forslag til overførsler
   src/mates/kinmate/            relations.ts (typer, modparter, forslag), gedcom.ts, prompt.ts
-  src/mates/catmate/            tractive.ts (login, trackere, positioner), geo.ts (afstande og rutetal)
+  src/mates/catmate/            tractive.ts (login, trackere, positioner, lagring), geo.ts (afstande og rutetal),
+                                analyse.ts (indsigterne som rene funktioner), poller.ts (baggrundshentning)
   src/mates/**/*.test.ts        Tests (bun test)
   scripts/import-flask.ts       Import fra den gamle Stockmate (Flask)
 frontend/src/
@@ -188,7 +197,7 @@ Hver ændring kontrolleres i en databasetransaktion. Gør ændringen et salg ugy
 
 De øvrige mates følger samme mønster under `/econmate`, `/kinmate` og `/kanmate`. DiskMate bruger `POST /diskmate/rpc/<kommando>` (liste: `GET /diskmate/commands`). Se den enkelte mates `routes.ts`.
 
-CatMate: `GET/PUT/DELETE /catmate/settings` (Tractive-login), `GET /catmate/pets` (trackere med batteri og seneste position) og `GET /catmate/trackers/:id/route?timer=24` (rute og nøgletal).
+CatMate: `GET/PUT/DELETE /catmate/settings` (Tractive-login), `GET /catmate/pets` (trackere med batteri og seneste position) `GET /catmate/trackers/:id/route?timer=24` (rute og nøgletal), `GET /catmate/trackers/:id/indsigt` (alle indsigter) og `PUT /catmate/hjem` (hjemmepunkt).
 
 ## Udvikling
 
@@ -207,5 +216,6 @@ CatMate: `GET/PUT/DELETE /catmate/settings` (Tractive-login), `GET /catmate/pets
 - Kinmate: billeder følger ikke med en backup fra Tauri-udgaven, fordi de lå som filer på den gamle maskine.
 - Kinmate-kortet og geokodningen kræver adgang til OpenStreetMap og Nominatim.
 - CatMate bruger Tractives uofficielle API (det samme som Home Assistant-integrationen), så det kan ændre sig uden varsel. Tractive-login gemmes ukrypteret i databasen, og historik ud over det, CatMate selv har hentet, afhænger af Tractive-abonnementet.
+- CatMates indsigter er skøn: trackeren måler med minutters mellemrum, så korte spurter overses, og tiden mellem to målinger tilskrives det sted, katten sidst blev set. Søvnkvalitet (opvågninger om natten) er ikke med, fordi Tractive ikke leverer det i de tal, CatMate henter. Aktivitetshistorik og streak tæller først fra den dag, CatMate blev forbundet.
 - KanMates synkronisering til PostgreSQL på Hetzner er ikke med. Hubbens egen backend erstatter den.
 - DiskMates automatiske import fra Google Drive er ikke med endnu. CSV-filer importeres under Indstillinger → Importér.
