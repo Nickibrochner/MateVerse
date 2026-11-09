@@ -94,6 +94,15 @@ export const MATES: MateInfo[] = [
     status: 'ready',
   },
   {
+    id: 'catmate',
+    name: 'CatMate',
+    icon: '🐈',
+    description: 'Kattens Tractive GPS: seneste position på kort, dagens rute, batteri og hvor længe siden den sidst blev set.',
+    accent: '109 40 217',
+    accentSoft: '245 243 255',
+    status: 'ready',
+  },
+  {
     id: 'domus',
     name: 'Domus',
     icon: '🏠',

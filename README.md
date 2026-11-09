@@ -13,6 +13,7 @@ Stakken er den samme som i DND Vault: Vue 3 og Bun/Elysia med SQLite, og det hel
 | 🌳 **Kinmate** | Slægtsforskning: stamtræ, anecirkel, kort, tidslinje, kilder, forskningslog, datakvalitet og GEDCOM | Tauri-udgaven |
 | 📋 **KanMate** | Kanban med projekter, deadlines, prioritet, underopgaver, arkiv og papirkurv | Tauri-udgaven |
 | 🥏 **DiskMate** | Disc golf: UDisc-import, statistik pr. bane, layout og fysisk hul, spillere, badges, grupperunder og diskkartotek | Tauri-udgaven |
+| 🐈 **CatMate** | Kattens Tractive GPS: seneste position, rute på kort, batteri og tilbagelagt afstand | Ny |
 
 ### Hubben (`/`)
 
@@ -51,6 +52,14 @@ Stakken er den samme som i DND Vault: Vue 3 og Bun/Elysia med SQLite, og det hel
 
 - Projekter med farver og fremdrift. Board med træk-og-slip og pile, filtrering på person.
 - Opgaver med prioritet, deadline, tildeling og underopgaver. Deadline-oversigt, arkiv og papirkurv med gendannelse.
+
+### CatMate (`/catmate`)
+
+- Kort (OpenStreetMap) med kattens seneste position, usikkerhedsring og ruten for de seneste 6 timer, 24 timer, 3 dage eller 7 dage.
+- Nøgletal: sidst set, batteri, tilbagelagt afstand (renset for GPS-støj, så en sovende kat ikke "går" flere kilometer) og længste afstand fra rutens start.
+- Log ind med din Tractive-konto under CatMate → Indstillinger. Login prøves af, før det gemmes.
+- Positionerne gemmes lokalt (`catmate_position`), efterhånden som de hentes. Svarer Tractive ikke, vises de gemte.
+- CatMate læser kun. Live-tracking, lys og lyd styres stadig fra Tractive-appen.
 
 ## Kom i gang
 
@@ -102,6 +111,7 @@ Personer/brugere matches på navn og oprettes i hubben, hvis de ikke findes. All
 | Markedsdata | Yahoo Finance (kurser, valutakurser og tickersøgning) |
 | Kort | Leaflet med OpenStreetMap, geokodning via Nominatim (Kinmate) |
 | Grafer | Chart.js (DiskMate) |
+| GPS | Tractive (`graph.tractive.com`, uofficielt API) (CatMate) |
 
 ## Projektstruktur
 
@@ -116,6 +126,7 @@ backend/
   src/mates/stockmate/          portfolio.ts (regnemotor), market.ts (Yahoo Finance)
   src/mates/econmate/calc.ts    Månedlige beløb, saldi og forslag til overførsler
   src/mates/kinmate/            relations.ts (typer, modparter, forslag), gedcom.ts, prompt.ts
+  src/mates/catmate/            tractive.ts (login, trackere, positioner), geo.ts (afstande og rutetal)
   src/mates/**/*.test.ts        Tests (bun test)
   scripts/import-flask.ts       Import fra den gamle Stockmate (Flask)
 frontend/src/
@@ -177,6 +188,8 @@ Hver ændring kontrolleres i en databasetransaktion. Gør ændringen et salg ugy
 
 De øvrige mates følger samme mønster under `/econmate`, `/kinmate` og `/kanmate`. DiskMate bruger `POST /diskmate/rpc/<kommando>` (liste: `GET /diskmate/commands`). Se den enkelte mates `routes.ts`.
 
+CatMate: `GET/PUT/DELETE /catmate/settings` (Tractive-login), `GET /catmate/pets` (trackere med batteri og seneste position) og `GET /catmate/trackers/:id/route?timer=24` (rute og nøgletal).
+
 ## Udvikling
 
 - **Backend:** `bun run --watch` genstarter ved ændringer. Containeren opdager ikke altid ændringer via bind-mountet på Windows. Kør så `docker restart mateverse-backend-1`.
@@ -193,5 +206,6 @@ De øvrige mates følger samme mønster under `/econmate`, `/kinmate` og `/kanma
 - Stockmate: udbytte, aktiesplit og skat registreres ikke endnu, og kurser er Yahoos seneste kurs, ikke realtid.
 - Kinmate: billeder følger ikke med en backup fra Tauri-udgaven, fordi de lå som filer på den gamle maskine.
 - Kinmate-kortet og geokodningen kræver adgang til OpenStreetMap og Nominatim.
+- CatMate bruger Tractives uofficielle API (det samme som Home Assistant-integrationen), så det kan ændre sig uden varsel. Tractive-login gemmes ukrypteret i databasen, og historik ud over det, CatMate selv har hentet, afhænger af Tractive-abonnementet.
 - KanMates synkronisering til PostgreSQL på Hetzner er ikke med. Hubbens egen backend erstatter den.
 - DiskMates automatiske import fra Google Drive er ikke med endnu. CSV-filer importeres under Indstillinger → Importér.

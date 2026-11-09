@@ -567,6 +567,25 @@ const MIGRATIONS: string[] = [
      created_at TEXT NOT NULL DEFAULT (datetime('now'))
    );
    CREATE INDEX IF NOT EXISTS idx_foodmate_log_dato ON foodmate_log(dato);`,
+
+  // 17: CatMate — viser kattens Tractive GPS-tracker. 'setting' gemmer Tractive-login og token
+  // ukrypteret, samme aftale som ContactMate og Stockmates krypto-nøgler. Positioner gemmes lokalt,
+  // efterhånden som de hentes, så ruten stadig kan vises, hvis Tractive ikke svarer.
+  `CREATE TABLE IF NOT EXISTS catmate_setting (
+     key TEXT PRIMARY KEY,
+     value TEXT NOT NULL
+   );
+   CREATE TABLE IF NOT EXISTS catmate_position (
+     tracker_id TEXT NOT NULL,
+     time INTEGER NOT NULL,
+     lat REAL NOT NULL,
+     lng REAL NOT NULL,
+     speed REAL,
+     altitude REAL,
+     uncertainty REAL,
+     sensor TEXT,
+     PRIMARY KEY (tracker_id, time)
+   ) WITHOUT ROWID;`,
 ]
 
 export function migrate(database: Database = db) {

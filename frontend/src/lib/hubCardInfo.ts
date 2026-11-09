@@ -2,6 +2,7 @@ import { request } from '../api'
 import { stockmateApi } from '../mates/stockmate/api'
 import { econApi } from '../mates/econmate/api'
 import { kanApi, daysLeft } from '../mates/kanmate/api'
+import { catApi, sidenTekst } from '../mates/catmate/api'
 import { money, signed, today } from './format'
 
 /**
@@ -163,6 +164,27 @@ export const HUB_INFO_OPTIONS: Record<string, HubInfoOption[]> = {
       async fetch() {
         const { total } = await request<{ total: { energi_kcal: number | null } }>(`/foodmate/log?dato=${today()}`)
         return total.energi_kcal != null ? `${Math.round(total.energi_kcal)} kcal i dag` : null
+      },
+    },
+  ],
+
+  catmate: [
+    {
+      id: 'seen',
+      label: 'Sidst set',
+      async fetch() {
+        const pets = await catApi.pets()
+        const p = pets.find(x => x.position)
+        return p?.position ? `${p.navn} set ${sidenTekst(p.position.time)}` : null
+      },
+    },
+    {
+      id: 'battery',
+      label: 'Batteri',
+      async fetch() {
+        const pets = await catApi.pets()
+        const p = pets.find(x => x.batteri != null)
+        return p ? `${p.navn}: ${p.batteri} % batteri` : null
       },
     },
   ],
